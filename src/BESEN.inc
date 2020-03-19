@@ -209,7 +209,7 @@ or contact:
   {$define DelphiXE8AndUp}
   {$define DelphiBerlinAndUp}
   {$define Delphi2009AndUp}
- {$endif}
+ {$endif} 
  {$ifdef ver320}
   {$define DelphiTokyo}
   {$define Delphi2009AndUp}
@@ -272,16 +272,18 @@ or contact:
 {$ifdef wince}
  {$define windows}
 {$endif}
-{$rangechecks off}
 {$extendedsyntax on}
 {$writeableconst on}
-{$hints off}
-{$booleval off}
-{$typedaddress off}
-{$stackframes off}
 {$varstringchecks on}
 {$typeinfo on}
+
+{$rangechecks off}
 {$overflowchecks off}
+{.$hints off}
+{.$booleval off}
+{.$typedaddress off}
+{.$stackframes off}
+
 {$longstrings on}
 {$openstrings on}
 {$undef UseSafeStringEquals}
@@ -329,4 +331,4 @@ or contact:
  {$endif}
 {$endif}
 
-
+{.$OPTIMIZATION REGVAR,LEVEL2,STACKFRAME,PEEPHOLE,ASMCSE,LOOPUNROLL,FASTMATH,CSE,DFA} // https://www.freepascal.org/docs-html/prog/progsu58.html

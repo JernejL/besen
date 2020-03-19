@@ -69,12 +69,12 @@ type TBESENParserLabelSet=class(TBESENCollectorObject)
        constructor Create(AInstance:TObject); overload; override;
        destructor Destroy; override;
        procedure Init;
-       function Parse(IsFunction,IsJSON:boolean):TBESENASTNode;
+       function Parse(IsFunction,IsJSON:boolean):TBESENASTNode; // todo: add input filename
      end;
      
 implementation
 
-uses {$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENUtils,BESENStringUtils,BESENErrors;
+uses typinfo,{$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENUtils,BESENStringUtils,BESENErrors, sysutils;
 
 constructor TBESENParserLabelSet.Create(AInstance:TObject);
 begin
@@ -115,7 +115,7 @@ constructor TBESENParser.Create(AInstance:TObject);
 begin
  inherited Create(AInstance);
  Lexer:=TBESENLexer.Create(Instance);
- ErrorProc:=nil;
+ //ErrorProc:=nil; - fix for overriding internal pascal rtl error reporting
  WarningProc:=nil;
 end;
 
@@ -139,8 +139,14 @@ var CurrentToken:TBESENLexerToken;
     IsInFunction,UseStrictAlreadyParsed:boolean;
  procedure AddError(const Msg:TBESENSTRING);
  begin
+
   TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+  TBESEN(Instance).CurrentToken:= BESENTokenStrings[currenttoken.TokenType];
+
   raise EBESENSyntaxError.CreateUTF16(Msg);
+
  end;
  procedure AddWarning(const Msg:TBESENSTRING);
  begin
@@ -155,7 +161,7 @@ var CurrentToken:TBESENLexerToken;
  procedure SkipToken(TokenType:TBESENLexerTokenType);
  begin
   if CurrentToken.TokenType<>TokenType then begin
-   AddError('"'+BESENTokenStrings[TokenType]+'" expected');
+   AddError('"'+BESENTokenStrings[TokenType]+'" expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
   end;
   NextToken;
  end;
@@ -197,7 +203,11 @@ var CurrentToken:TBESENLexerToken;
     l:=Labels;
     while assigned(l) do begin
      if l.Name=Name then begin
-      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+        TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+		TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+		TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+		TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
       raise EBESENSyntaxError.CreateUTF16('Duplicate label "'+Name+'"');
      end;
      l:=l.Next;
@@ -241,6 +251,10 @@ var CurrentToken:TBESENLexerToken;
        continue;
       end;
       TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
       raise EBESENSyntaxError.CreateUTF16('Label name "'+Name+'" not suitable for continue');
      end;
      result:=l.LabelSet.Target;
@@ -249,13 +263,25 @@ var CurrentToken:TBESENLexerToken;
     l:=l.Next;
    end;
    if length(Name)<>0 then begin
-    TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
     raise EBESENSyntaxError.CreateUTF16('Label name "'+Name+'" not defined, or not reachable');
    end else if Continuable then begin
-    TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
     raise EBESENSyntaxError.Create('Continue statement not within a loop');
    end else begin
-    TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
+	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
     raise EBESENSyntaxError.Create('Break statement not within a loop or switch');
    end;
   except
@@ -331,7 +357,7 @@ var CurrentToken:TBESENLexerToken;
    if CurrentToken.TokenType=lttIDENTIFIER then begin
     result.Name:=CurrentToken.Name;
    end else begin
-    AddError('identifier literal expected');
+    AddError('identifier literal expected, "' + BESENTokenStrings[CurrentToken.TokenType] + '" found.');
    end;
    if (TBESEN(Instance).IsStrict and not AllowEvalArguments) and ((result.Name='eval') or (result.Name='arguments')) then begin
     AddError('"'+result.Name+'" not allowed here');
@@ -353,7 +379,7 @@ var CurrentToken:TBESENLexerToken;
    end else if CurrentToken.TokenType=lttIDENTIFIER then begin
     result.Name:=CurrentToken.Name;
    end else begin
-    AddError('identifier literal expected');
+    AddError('identifier literal expected, ' + BESENTokenStrings[CurrentToken.TokenType] + ' found.');
    end;
    if (TBESEN(Instance).IsStrict and not AllowEvalArguments) and ((result.Name='eval') or (result.Name='arguments')) then begin
     AddError('"'+result.Name+'" not allowed here');
@@ -709,10 +735,10 @@ var CurrentToken:TBESENLexerToken;
    if CurrentToken.TokenType in [ltoDIVIDE,ltoDIVIDEASSIGNMENT] then begin
     Lexer.Restore(CurrentToken);
     if not Lexer.ParseRegExpLiteral(CurrentToken,result.Source,result.Flags) then begin
-     AddError('regex literal expected');
+     AddError('regex literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
     end;
    end else begin
-    AddError('regex literal expected');
+    AddError('regex literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
    end;
    NextToken;
   except
@@ -729,7 +755,7 @@ var CurrentToken:TBESENLexerToken;
    if CurrentToken.TokenType=lttSTRING then begin
     result.Value:=CurrentToken.StringValue;
    end else begin
-    AddError('string literal expected');
+    AddError('string literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
    end;
    NextToken;
   except
@@ -751,7 +777,7 @@ var CurrentToken:TBESENLexerToken;
      result.Value:=CurrentToken.FloatValue;
     end;
     else begin
-     AddError('numberic literal expected');
+     AddError('numberic literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
     end;
    end;
    NextToken;
@@ -790,7 +816,7 @@ var CurrentToken:TBESENLexerToken;
       result:=BESENTokenStrings[CurrentToken.TokenType];
       NextToken;
      end else begin
-      AddError('identifier or numeric literal expected');
+      AddError('identifier or numeric literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
      end;
     end;
    end;
@@ -923,7 +949,7 @@ var CurrentToken:TBESENLexerToken;
      if CurrentToken.TokenType=ltoCOMMA then begin
       SkipToken(ltoCOMMA);
      end else begin
-      AddError(''','' or ''}'' expected');
+      AddError(''','' or ''}'' expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
       break;
      end;
     end;
@@ -963,7 +989,7 @@ var CurrentToken:TBESENLexerToken;
      if CurrentToken.TokenType=ltoCOMMA then begin
       SkipToken(ltoCOMMA);
      end else begin
-      AddError(''','' or '']'' expected');
+      AddError(''','' or '']'' expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
       break;
      end;
     end;
@@ -1030,7 +1056,7 @@ var CurrentToken:TBESENLexerToken;
      result:=ParseNumbericLiteral;
     end;
     else begin
-     AddError('identifier or literal expected');
+     AddError('identifier or literal expected, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
     end;
    end;
   except
@@ -1946,7 +1972,7 @@ var CurrentToken:TBESENLexerToken;
    result.TryBlock:=ParseBlockStatement;
 
    if (CurrentToken.TokenType<>ltkCATCH) and (CurrentToken.TokenType<>ltkFINALLY) then begin
-    AddError('catch or finally expected after try');
+    AddError('catch or finally expected after try, "' + BESENTokenStrings[currenttoken.TokenType] + '" found.');
    end;
 
    if CurrentToken.TokenType=ltkCATCH then begin

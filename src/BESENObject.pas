@@ -2500,7 +2500,8 @@ procedure BESENCheckObjectCoercible(const v:TBESENValue); {$ifdef caninline}inli
 begin
  case v.ValueType of
   bvtUNDEFINED,bvtNULL,bvtREFERENCE,bvtLOCAL:begin
-   BESENThrowTypeError('CheckObjectCoercible failed');
+
+   BESENThrowTypeError('CheckObjectCoercible failed, possibly attempted object call non-object (your object is probably null or undefined).');
   end;
  end;
 end;

@@ -1,3 +1,6 @@
+// TODO: merge stuff from https://github.com/reddor/besenws/commits/7bd65f904bbea9cce5138ed0d85696dece1e077a/src/besen
+
+
 (*******************************************************************************
                                     B E S E N
 ********************************************************************************
@@ -122,6 +125,8 @@ type TBESEN=class;
      TBESENRegExpDebugOutputHook=procedure(const Instance:TBESEN;const Data:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};NewLine:TBESENBOOLEAN) of object;
 
      TBESEN=class
+      private
+             FFilenames: array of TBESENANSISTRING;
       public
        CriticalSection:TCriticalSection;
        Collector:TBESENCollector;
@@ -153,6 +158,9 @@ type TBESEN=class;
        PeriodicHook:TBESENPeriodicHook;
        RegExpDebugOutputHook:TBESENRegExpDebugOutputHook;
        LineNumber:TBESENUINT32;
+       ColumnNumber:TBESENUINT32;
+       CurrentLine: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+       CurrentToken: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
        RandomGenerator:TBESENRandomGenerator;
        RegExpMaxStatesHoldInMemory:integer;
        JITLoopCompileThreshold:longword;
@@ -197,6 +205,7 @@ type TBESEN=class;
        GlobalLexicalEnvironment:TBESENLexicalEnvironment;
        ObjectNumberConstructorValue:TBESENValue;
        ObjectStringConstructorValue:TBESENValue;
+       FilenameSet,CurrentFile: Integer;
        constructor Create(ACompatibility:longword=0); overload;
        destructor Destroy; override;
        procedure Lock;
@@ -206,21 +215,25 @@ type TBESEN=class;
        procedure LockValue(const Value:TBESENValue);
        procedure UnlockValue(const Value:TBESENValue);
        function GetRandom:longword;
+
+       procedure SetFilename(AFilename: TBESENANSISTRING);
+       function GetFilename: TBESENANSISTRING;
+
        procedure RegisterNativeObject(const AName:TBESENString;const AClass:TBESENNativeObjectClass;const Attributes:TBESENObjectPropertyDescriptorAttributes=[bopaWRITABLE,bopaCONFIGURABLE]);
        procedure FunctionCall(Obj:TBESENObject;const ThisArgument:TBESENValue;const Arguments:array of TBESENValue;var AResult:TBESENValue);
        procedure FunctionConstruct(Obj:TBESENObject;const ThisArgument:TBESENValue;const Arguments:array of TBESENValue;var AResult:TBESENValue);
        function MakeError(const Name:TBESENString;var ConstructorObject:TBESENObjectErrorConstructor;const ProtoProto:TBESENObject):TBESENObjectErrorPrototype;
        function LoadFromStream(const Stream:TStream):TBESENASTNode;
        procedure SaveToStream(const Stream:TStream;const RootNode:TBESENASTNode);
-       function Compile(InputSource:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const Parameters:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif}='';IsFunction:TBESENBoolean=false;IsJSON:TBESENBoolean=false):TBESENASTNode;
+       function Compile(InputSource:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const Parameters:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif}='';IsFunction:TBESENBoolean=false;IsJSON:TBESENBoolean=false):TBESENASTNode; // todo: filename input
        function Decompile(RootNode:TBESENASTNode):{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
        function ObjectInstanceOf(const v:TBESENValue;Obj:TBESENObject):boolean;
        function MakeFunction(Node:TBESENASTNodeFunctionLiteral;Name:TBESENString;ParentLexicalEnvironment:TBESENLexicalEnvironment=nil):TBESENObjectDeclaredFunction;
-       function Execute(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const ThisArgument:TBESENValue;const PrecompiledASTNode:TBESENASTNode=nil;const IsEval:TBESENBoolean=false):TBESENValue; overload;
-       function Execute(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil;const IsEval:TBESENBoolean=false):TBESENValue; overload;
-       function Eval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const ThisArgument:TBESENValue;const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload;
-       function Eval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload;
-       function JSONEval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload;
+       function Execute(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const ThisArgument:TBESENValue;const PrecompiledASTNode:TBESENASTNode=nil;const IsEval:TBESENBoolean=false):TBESENValue; overload; // todo: filename input
+       function Execute(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil;const IsEval:TBESENBoolean=false):TBESENValue; overload; // todo: filename input
+       function Eval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const ThisArgument:TBESENValue;const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload; // todo: filename input
+       function Eval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload; // todo: filename input
+       function JSONEval(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};const PrecompiledASTNode:TBESENASTNode=nil):TBESENValue; overload; // todo: filename input
        function JSONStringify(const Value:TBESENValue):TBESENValue; overload;
        function JSONStringify(const Value,Replacer:TBESENValue):TBESENValue; overload;
        function JSONStringify(const Value,Replacer,Space:TBESENValue):TBESENValue; overload;
@@ -298,6 +311,8 @@ begin
  PeriodicHook:=nil;
  RegExpDebugOutputHook:=nil;
  LineNumber:=0;
+ CurrentFile:=-1;
+ FilenameSet:=-1;
  RandomGenerator:=TBESENRandomGenerator.Create(self);
  RegExpMaxStatesHoldInMemory:=breMAXSTATESHOLDINMEMORY;
  JITLoopCompileThreshold:=BESEN_JIT_LOOPCOMPILETHRESHOLD;
@@ -611,11 +626,46 @@ begin
  result:=RandomGenerator.Get;
 end;
 
+procedure TBESEN.SetFilename(AFilename: TBESENANSISTRING);
+var i:Integer;
+begin
+ for i:=0 to Length(FFilenames)-1 do
+ if FFilenames[i] = AFilename then
+ begin
+  FilenameSet:=i;
+  Exit;
+ end;
+ i:=Length(FFilenames);
+ Setlength(FFilenames, i+1);
+ FFilenames[i]:=AFilename;
+ FilenameSet:=i;
+end;
+
+function TBESEN.GetFilename: TBESENANSISTRING;
+begin
+ if(CurrentFile>=0)and(CurrentFile<Length(FFilenames)) then begin
+  result:=FFilenames[CurrentFile];
+ end else begin
+  result:='<Unknown>';
+ end;
+end;
+
 procedure TBESEN.RegisterNativeObject(const AName:TBESENString;const AClass:TBESENNativeObjectClass;const Attributes:TBESENObjectPropertyDescriptorAttributes=[bopaWRITABLE,bopaCONFIGURABLE]);
 var v:TBESENValue;
+	nuovo: TBESENNativeObject;
 begin
  v.ValueType:=bvtOBJECT;
- TBESENObject(v.Obj):=AClass.Create(self,ObjectPrototype);
+
+ //TBESENObject(v.Obj):=AClass.Create(self,ObjectPrototype);
+
+ nuovo := AClass.Create(self,ObjectPrototype);
+ TBESENObject(v.Obj):= nuovo;
+
+//219 Invalid typecast
+//Thrown when an invalid typecast is attempted on a class using the as operator.
+//This error is also thrown when an object or class is typecast to an invalid class or object and a virtual method of that class or object is called.
+//This last error is only detected if the -CR compiler option is used.
+
  GarbageCollector.AddRoot(TBESENObject(v.Obj));
  ObjectGlobal.OverwriteData(AName,v,Attributes);
 end;

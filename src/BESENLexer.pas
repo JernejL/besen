@@ -94,16 +94,21 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
       OldTokenEOF:longbool;
      end;
 
+	 { TBESENLexer }
+
      TBESENLexer=class(TBESENBaseObject)
+	 private
+		 procedure SetLineNumber(AValue: integer);
       public
        Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
-       Position:integer;
-       LineNumber:integer;
+       Position:integer; // character's offset in file
+   	   fLinePosition: integer; // beginning of last line's first character
+       fLineNumber:integer;
        CurrentChar:TBESENUTF32CHAR;
        WarningProc:TBESENWarningProc;
-       CharEOF:longbool;
-       TokenEOF:longbool;
-       LastWasLineEnd:longbool;
+       CharEOF:longbool; // is at end of file - no more tokens
+       TokenEOF:longbool; // is last token - end of file? (is set from CharEOF)
+       LastWasLineEnd:longbool; // doesn't seem to be used - set only.
        constructor Create(AInstance:TObject); overload; override;
        destructor Destroy; override;
        procedure NextChar;
@@ -111,6 +116,11 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
        function ParseRegExpLiteral(var Token:TBESENLexerToken;var ASource,AFlags:TBESENString):boolean;
        function IsEOF:boolean;
        procedure GetToken(var AResult:TBESENLexerToken);
+       function CurrentLine(): {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+       function CurrentColumn: integer;
+       published
+       property LineNumber:integer read fLineNumber write SetLineNumber;
+       procedure NextLine;
      end;
 
 const BESENLexerReservedTokens:TBESENLexerTokenTypeSet=[ltkCLASS,ltkCONST,ltkENUM,ltkEXPORT,ltkEXTENDS,ltkIMPORT,ltkSUPER];
@@ -161,7 +171,7 @@ const BESENLexerReservedTokens:TBESENLexerTokenTypeSet=[ltkCLASS,ltkCONST,ltkENU
 
 implementation
 
-uses {$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENRegExp,BESENErrors,BESENNumberUtils;
+uses {$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENRegExp,BESENErrors,BESENNumberUtils, strutils;
 
 type TKeywordToken=ltkBREAK..ltkYIELD;
 
@@ -188,6 +198,13 @@ const KeywordNames:array[TKeywordToken] of TBESENUTF16STRING=
         'yield');
 
       Keywords:TKeywords=nil;
+
+procedure TBESENLexer.SetLineNumber(AValue: integer);
+begin
+	if fLineNumber= AValue then Exit;
+	fLineNumber:= AValue;
+
+end;
 
 constructor TBESENLexer.Create(AInstance:TObject);
 begin
@@ -621,12 +638,12 @@ begin
       if CurrentChar=$000a then begin
        NextChar;
       end;
-      inc(LineNumber);
+      NextLine();
       AResult.WasLineEnd:=true;
      end;
      $000a,$2028,$2029:begin
       NextChar;
-      inc(LineNumber);
+      NextLine();
       AResult.WasLineEnd:=true;
      end;
      else begin
@@ -720,7 +737,7 @@ begin
          NextChar;
         end;
         if BESENUnicodeIsLineTerminator(CurrentChar) then begin
-         inc(LineNumber);
+          NextLine();
          AResult.WasLineEnd:=true;
          if CurrentChar=$000d then begin
           NextChar;
@@ -738,7 +755,9 @@ begin
         c:=0;
         while (not ((c=ord('*')) and (CurrentChar=ord('/')))) and not CharEOF do begin
          if BESENUnicodeIsLineTerminator(CurrentChar) then begin
-          inc(LineNumber);
+
+           NextLine();
+
           AResult.WasLineEnd:=true;
           if CurrentChar=$000d then begin
            c:=CurrentChar;
@@ -832,7 +851,9 @@ begin
            NextChar;
           end;
           if BESENUnicodeIsLineTerminator(CurrentChar) then begin
-           inc(LineNumber);
+
+            NextLine();
+
            AResult.WasLineEnd:=true;
            if CurrentChar=$000d then begin
             NextChar;
@@ -867,7 +888,9 @@ begin
            NextChar;
           end;
           if BESENUnicodeIsLineTerminator(CurrentChar) then begin
-           inc(LineNumber);
+
+           NextLine();
+
            AResult.WasLineEnd:=true;
            if CurrentChar=$000d then begin
             NextChar;
@@ -1041,12 +1064,14 @@ begin
             AResult.StringValue:=AResult.StringValue+#$000a;
             NextChar;
            end;
-           inc(LineNumber);
+           fLinePosition:= Position;
+			NextLine();
            AResult.WasLineEnd:=true;
           end;
           $000a,$2028,$2029:begin
            AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
-           inc(LineNumber);
+           fLinePosition:= Position;
+			NextLine();
            AResult.WasLineEnd:=true;
            break;
           end;
@@ -1364,6 +1389,34 @@ begin
   AResult.LineEnd:=BESENUnicodeIsLineTerminator(CurrentChar);
   LastWasLineEnd:=AResult.LineEnd;
  end;
+end;
+
+function TBESENLexer.CurrentLine(): TBESENUTF8STRING;
+var
+	eolpos: integer;
+begin
+
+ 	eolpos:= PosEx(#13, Source, fLinePosition);
+
+    result:= Copy(Source, fLinePosition, eolpos - fLinePosition);
+
+	// Lexer.LineNumber
+
+end;
+
+function TBESENLexer.CurrentColumn: integer;
+begin
+
+	result:= Position - fLinePosition;
+
+end;
+
+procedure TBESENLexer.NextLine;
+begin
+
+	LineNumber:= LineNumber + 1;
+    fLinePosition:= position;
+
 end;
 
 procedure InitKeywords;
