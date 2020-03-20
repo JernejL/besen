@@ -1,11 +1,10 @@
-
 BESEN is an acronym for "**B** ero's **E** cma **S** cript **E** ngine", and it is a complete ECMAScript Fifth Edition Implemention in Object Pascal, which is compilable with Delphi >=7 and Free Pascal >= 2.5.1 (maybe also 2.4.1).
 
 BESEN is licensed under the LGPL v2.1 with static-linking-exception.
 
-# Support me
+# Support BeRo
 
-[Support me at Patreon](https://www.patreon.com/bero)
+[Support BeRo at Patreon](https://www.patreon.com/bero)
 
 # Features
 
@@ -25,6 +24,17 @@ BESEN is licensed under the LGPL v2.1 with static-linking-exception.
 * Perfomance optimized hash maps
 * Self balanced trees (for example to sort on-the-fly linked list items of hash maps for very fast enumeration of array objects)
 * Easy native Object Pascal class integration (properties per RTTI and published methods per by-hand-parsing of the native virtual method table)
+
+# Upgrades over original BESEN:
+
+* Significantly better syntax error reporting
+* Minor Fixes
+* Merged some fixes and updates from other scattered branches ( https://github.com/reddor/besenws/tree/master/src/besen )
+
+# TODO:
+
+* Finalize file tracking
+* Code execution error reporting
 
 # Hint
 
