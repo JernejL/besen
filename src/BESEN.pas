@@ -118,7 +118,7 @@ type TBESEN=class;
 
      TBESENTransitSecurityDomain=procedure(const Instance:TBESEN;const NewSecurityDomain:pointer) of object;
 
-     TBESENTraceHook=function(const Instance:TBESEN;const Context:TBESENContext;const FunctionBody:TBESENASTNodeFunctionBody;PC:TBESENUINT32;const TraceType:TBESENTraceType):boolean of object;
+     TBESENTraceHook=function(const Instance:TBESEN;const Context:TBESENContext;const FunctionBody:TBESENASTNodeFunctionBody;PC:TBESENUINT32;const TraceType:TBESENTraceType):boolean {of object};
 
      TBESENPeriodicHook=function(const Instance:TBESEN):boolean of object;
 

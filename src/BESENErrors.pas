@@ -33,7 +33,7 @@ unit BESENErrors;
 
 interface
 
-uses SysUtils,Classes,BESENConstants,BESENTypes,BESENValue;
+uses SysUtils,Classes,BESENConstants,BESENTypes,BESENValue, BESENCodeContext;
 
 type EBESENError=class(Exception)
       public
@@ -146,7 +146,7 @@ procedure BESENThrowCodeGeneratorInvalidRegister;
 procedure BESENThrowRecursionLimitReached;
 procedure BESENThrowNotDefined(const ARef:TBESENValue);
 procedure BESENThrowReference;
-procedure BESENThrowNotAccessable(const ARef:TBESENValue);
+procedure BESENThrowNotAccessable(const InContext:TBESENCodeContext; const ARef:TBESENValue);
 procedure BESENThrowNotReadable(const P:TBESENString);
 procedure BESENThrowNotWritable(const P:TBESENString);
 procedure BESENThrowNoSetter(const P:TBESENString);
@@ -159,7 +159,7 @@ procedure BESENThrowCaller;
 procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const fn:TBESENString);
 procedure BESENThrowTypeErrorNotAConstructorObject;
 procedure BESENThrowTypeErrorObjectHasNoConstruct;
-procedure BESENThrowTypeErrorNotAFunction;
+procedure BESENThrowTypeErrorNotAFunction(const fn:TBESENString);
 procedure BESENThrowTypeErrorNotCallable;
 
 implementation
@@ -552,9 +552,16 @@ begin
  BESENThrowReferenceError('Reference error');
 end;
 
-procedure BESENThrowNotAccessable(const ARef:TBESENValue);
+procedure BESENThrowNotAccessable(const InContext: TBESENCodeContext; const ARef: TBESENValue);
 begin
- BESENThrowReferenceError('"'+ARef.Str+'" is not accessable');
+
+ 	//BESENThrowReferenceError(InContext.Block.Ident + ' - ' + InContext.Block.Obj.ObjectClassName + ' - ' + InContext.Block.Obj.ObjectName);
+
+	if ARef.ReferenceIsStrict then
+		BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context (mode strict). Maybe it is not assigned or declared as a variable ( use "var '+ARef.Str+'" ).')
+	else
+    	BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context.');
+
 end;
 
 procedure BESENThrowNotReadable(const P:TBESENString);
@@ -617,9 +624,9 @@ begin
  BESENThrowTypeError('Object has no construct');
 end;
 
-procedure BESENThrowTypeErrorNotAFunction;
+procedure BESENThrowTypeErrorNotAFunction(const fn:TBESENString);
 begin
- BESENThrowTypeError('Not a function');
+ BESENThrowTypeError(fn + ' is not a valid method');
 end;
 
 procedure BESENThrowTypeErrorNotCallable;

@@ -590,7 +590,7 @@ begin
   TBESEN(Instance).GarbageCollector.Add(O);
  end;
  if not assigned(O) then begin
-  BESENThrowNotAccessable(ARef);
+  BESENThrowNotAccessable(self, ARef);
  end;
  O.GarbageCollectorLock;
  try
@@ -609,7 +609,7 @@ begin
   Done:=false;
   if not O.CanPut(Str,Descriptor,Descriptor2,Hash) then begin
    if ARef.ReferenceIsStrict then begin
-    BESENThrowNotAccessable(ARef);
+    BESENThrowNotAccessable(self, ARef);
    end else begin
     Done:=true;
    end;
@@ -617,7 +617,7 @@ begin
   if not Done then begin
    if ([boppVALUE,boppWRITABLE]*Descriptor2.Presents)<>[] then begin
     if ARef.ReferenceIsStrict then begin
-     BESENThrowNotAccessable(ARef);
+     BESENThrowNotAccessable(self, ARef);
     end else begin
      Done:=true;
     end;
@@ -629,12 +629,12 @@ begin
       TBESEN(Instance).ObjectCall(TBESENObject(Descriptor.Setter),BaseValue,@ValuePointers,1,AnotherTemp);
      end else begin
       if ARef.ReferenceIsStrict then begin
-       BESENThrowNotAccessable(ARef);
+       BESENThrowNotAccessable(self, ARef);
       end;
      end;
     end else begin
      if ARef.ReferenceIsStrict then begin
-      BESENThrowNotAccessable(ARef);
+      BESENThrowNotAccessable(self, ARef);
      end;
     end;
    end;
@@ -647,7 +647,7 @@ end;
 procedure TBESENCodeContext.PutObject(const ARef,AValue:TBESENValue);
 begin
  if not assigned(ARef.ReferenceBase.Obj) then begin
-  BESENThrowNotAccessable(ARef);
+  BESENThrowNotAccessable(self, ARef);
  end;
  if ARef.ReferenceID<0 then begin
   if ARef.ReferenceIndex<0 then begin
@@ -676,7 +676,7 @@ end;
 procedure TBESENCodeContext.PutUndefined(const ARef,AValue:TBESENValue);
 begin
  if ARef.ReferenceIsStrict then begin
-  BESENThrowNotAccessable(ARef);
+  BESENThrowNotAccessable(self, ARef);
  end else begin
   TBESEN(Instance).ObjectGlobal.PutEx(ARef.Str,AValue,false,Descriptor,Descriptor2,AnotherTemp);
  end;
@@ -885,7 +885,7 @@ begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+4]];
   end;
   if Func^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAFunction;
+   BESENThrowTypeErrorNotAFunction(RegisterValues[Operands^[1]].STR);
   end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
    BESENThrowTypeErrorNotCallable;
   end;
@@ -2014,6 +2014,7 @@ end;
 procedure TBESENCodeContext.OpLINE(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
 begin
  TBESEN(Instance).LineNumber:=Code.Locations[Operands^[0]].LineNumber;
+ TBESEN(Instance).CurrentFile:=Code.Locations[Operands^[0]].Filename;
 end;
 
 procedure TBESENCodeContext.OpGC(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -3023,7 +3024,15 @@ begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+4]];
   end;
   if Func^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAFunction;
+
+   if ( (RegisterValues[Operands^[1]].valuetype = bvtSTRING) or (RegisterValues[Operands^[1]].valuetype = bvtREFERENCE) ) then
+
+    // todo: check if TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME is legit at all.
+   	BESENThrowTypeErrorNotAFunction(TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR)
+
+   else
+    BESENThrowTypeErrorNotAFunction('unknown type: ' + IntToStr(RegisterValues[Operands^[1]].valuetype));
+
   end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
    BESENThrowTypeErrorNotCallable;
   end;
@@ -3032,7 +3041,12 @@ begin
   end else begin
    CallThisArg.ValueType:=bvtUNDEFINED;
   end;
+
+  // TODO: stack trace tracing: (TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR);
+  // add file and line info too.
+
   if Trace(bttCALL) then begin
+
    if Func^.Obj=TBESEN(Instance).ObjectGlobalEval then begin
     DirectCall:=((Ref^.ValueType=bvtREFERENCE) and (Ref^.ReferenceBase.ValueType=brbvtENVREC)) and TBESENEnvironmentRecord(Ref^.ReferenceBase.EnvRec).HasBindingEx('eval',Descriptor);
     TBESEN(Instance).GlobalEval(Context,CallThisArg,@ParamArgs[0],CountArguments,DirectCall,RegisterValues[Operands^[0]]);
@@ -3041,6 +3055,7 @@ begin
    end;
    Trace(bttRETURN);
   end;
+
  finally
   TBESEN(Instance).IsStrict:=OldIsStrict;
  end;
