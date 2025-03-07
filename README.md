@@ -2,6 +2,14 @@ BESEN is an acronym for "**B** ero's **E** cma **S** cript **E** ngine", and it 
 
 BESEN is licensed under the LGPL v2.1 with static-linking-exception.
 
+# Upgrades over original BESEN:
+
+* Significantly better syntax and runtime error reporting
+* Improved file position tracking
+* Minor Fixes
+* Merged some fixes and updates from other scattered branches ( https://github.com/reddor/besenws/tree/master/src/besen )
+* Improved RTTI support
+
 # Support BeRo
 
 [Support BeRo at Patreon](https://www.patreon.com/bero)
@@ -24,12 +32,6 @@ BESEN is licensed under the LGPL v2.1 with static-linking-exception.
 * Perfomance optimized hash maps
 * Self balanced trees (for example to sort on-the-fly linked list items of hash maps for very fast enumeration of array objects)
 * Easy native Object Pascal class integration (properties per RTTI and published methods per by-hand-parsing of the native virtual method table)
-
-# Upgrades over original BESEN:
-
-* Significantly better syntax error reporting
-* Minor Fixes
-* Merged some fixes and updates from other scattered branches ( https://github.com/reddor/besenws/tree/master/src/besen )
 
 # TODO:
 
