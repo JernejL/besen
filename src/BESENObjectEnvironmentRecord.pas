@@ -81,7 +81,7 @@ end;
 function TBESENObjectEnvironmentRecord.CreateMutableBinding(const N:TBESENString;const D:TBESENBoolean=false;Hash:TBESENHash=0):TBESENBoolean;
 begin
  if BindingObject.HasProperty(N,Hash) then begin
-  BESENThrowTypeError('CreateMutableBinding for "'+N+'" failed');
+  BESENThrowTypeError(self, 'CreateMutableBinding for "'+N+'" failed');
  end;
  if D then begin
   result:=BindingObject.DefineOwnProperty(N,BESENDataPropertyDescriptor(BESENUndefinedValue,[bopaWRITABLE,bopaENUMERABLE,bopaCONFIGURABLE]),true,Hash); // ES5 errata false to true
@@ -99,7 +99,7 @@ end;
 procedure TBESENObjectEnvironmentRecord.GetBindingValueEx(const N:TBESENString;const S:TBESENBoolean;var R:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0);
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('GetBindingValue for "'+N+'" failed');
+  BESENThrowTypeError(self, 'GetBindingValue for "'+N+'" failed');
  end;
 begin
  if not BindingObject.GetEx(N,R,Descriptor,BindingObject,Hash) then begin
@@ -136,7 +136,7 @@ end;
 procedure TBESENObjectEnvironmentRecord.GetIndexValue(const I,ID:integer;const S:TBESENBoolean;var R:TBESENValue);
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('GetIndexValue failed');
+  BESENThrowTypeError(self, 'GetIndexValue failed');
  end;
 begin
  if not BindingObject.GetIndex(I,ID,R,BindingObject) then begin

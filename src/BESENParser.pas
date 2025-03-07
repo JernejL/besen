@@ -137,9 +137,11 @@ var CurrentToken:TBESENLexerToken;
     LabelSets,CurrentLabelSet:TBESENParserLabelSet;
     LabelSetList,LabelList:TBESENPointerList;
     IsInFunction,UseStrictAlreadyParsed:boolean;
+
  procedure AddError(const Msg:TBESENSTRING);
  begin
 
+  // todo: file index
   TBESEN(Instance).LineNumber:=Lexer.LineNumber;
   TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
   TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
@@ -148,16 +150,19 @@ var CurrentToken:TBESENLexerToken;
   raise EBESENSyntaxError.CreateUTF16(Msg);
 
  end;
+
  procedure AddWarning(const Msg:TBESENSTRING);
  begin
   if assigned(WarningProc) then begin
    WarningProc(Lexer.LineNumber,Msg);
   end;
  end;
+
  procedure NextToken;
  begin
   Lexer.GetToken(CurrentToken);
  end;
+
  procedure SkipToken(TokenType:TBESENLexerTokenType);
  begin
   if CurrentToken.TokenType<>TokenType then begin
@@ -165,6 +170,7 @@ var CurrentToken:TBESENLexerToken;
   end;
   NextToken;
  end;
+
  procedure CleanUpLabels;
  var i:integer;
  begin
@@ -179,6 +185,7 @@ var CurrentToken:TBESENLexerToken;
   end;
   LabelList.Clear;
  end;
+
  function LabelSetCurrent:TBESENParserLabelSet;
  begin
   if not assigned(CurrentLabelSet) then begin
@@ -194,6 +201,7 @@ var CurrentToken:TBESENLexerToken;
   end;
   result:=CurrentLabelSet;
  end;
+
  function LabelEnter(const Name:TBESENString='';const Node:TBESENASTNode=nil):TBESENParserLabel;
  var l:TBESENParserLabel;
  begin
@@ -226,6 +234,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  procedure LabelLeave;
  var OldLabels:TBESENParserLabel;
  begin
@@ -239,6 +248,7 @@ var CurrentToken:TBESENLexerToken;
    BESENFreeAndNil(OldLabels);
   end;
  end;
+
  function LabelTargetLookup(const Name:TBESENString='';const Continuable:boolean=false):TBESENTarget;
  var l:TBESENParserLabel;
  begin
@@ -288,14 +298,17 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseSourceElement:TBESENASTNodeStatement; forward;
  function ParseStatement(ResetCurrentLabelSet:boolean):TBESENASTNodeStatement; forward;
  function ParseAssignmentExpression(InFlag:boolean):TBESENASTNodeExpression; forward;
  function ParseExpression(InFlag:boolean):TBESENASTNodeExpression; forward;
+
  function NextIsSemicolon:boolean;
  begin
   result:=(CurrentToken.TokenType in [ltEOF,ltoCLOSEBRACE,ltoSEMICOLON]) or (CurrentToken.WasLineEnd and not InForHeader);
  end;
+
  procedure ParseOptionalSemicolon;
  begin
   case CurrentToken.TokenType of
@@ -313,6 +326,7 @@ var CurrentToken:TBESENLexerToken;
    end;
   end;
  end;
+
  procedure ParseDirective(var IsDirectivePrologue,FirstDirective:boolean;Body:TBESENASTNodeFunctionBody);
  var OldToken:TBESENLexerToken;
  begin
@@ -348,12 +362,19 @@ var CurrentToken:TBESENLexerToken;
    end;
   end;
  end;
+
  function ParseIdentifier(AllowEvalArguments:boolean):TBESENASTNodeIdentifier;
  begin
   result:=nil;
   try
    result:=TBESENASTNodeIdentifier.Create(Instance);
    result.Location.LineNumber:=CurrentToken.LineNumber;
+
+   if result.Location.LineNumber>0 then begin
+    TBESEN(Instance).LineNumber:=result.Location.LineNumber;
+    TBESEN(Instance).CurrentFile:=result.Location.Filename;
+   end;
+
    if CurrentToken.TokenType=lttIDENTIFIER then begin
     result.Name:=CurrentToken.Name;
    end else begin
@@ -368,6 +389,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseIdentifierName(AllowEvalArguments:boolean):TBESENASTNodeIdentifier;
  begin
   result:=nil;
@@ -390,10 +412,12 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseFunctionLiteral(WithFunction,WithName:boolean):TBESENASTNodeFunctionLiteral;
  var i,j:integer;
      OldIsInFunction,OldIsStrict,OldUseStrictAlreadyParsed:boolean;
      OldToken:TBesenLexerToken;
+
   procedure ParseFunctionStatements;
   var IsDirectivePrologue,FirstDirective:boolean;
       Statements,i:integer;
@@ -424,6 +448,7 @@ var CurrentToken:TBESENLexerToken;
     raise;
    end;
   end;
+
   function ParseFakeReturnStatement:TBESENASTNodeReturnStatement;
   begin
    result:=nil;
@@ -441,6 +466,7 @@ var CurrentToken:TBESENLexerToken;
     raise;
    end;
   end;
+
  var FakeReturnStatement:TBESENASTNodeReturnStatement;
  begin
   result:=nil;
@@ -540,6 +566,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseFunctionDeclaration:TBESENASTNodeFunctionDeclaration;
  var Literal:TBESENASTNodeFunctionLiteral;
  begin
@@ -554,6 +581,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseFunctionExpression(WithFunction,WithName:boolean):TBESENASTNodeFunctionExpression;
  var Literal:TBESENASTNodeFunctionLiteral;
  begin
@@ -568,6 +596,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseStatementList(InSwitch:boolean):TBESENASTNodeStatements;
  var Count:integer;
  begin
@@ -595,6 +624,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseBlockStatement:TBESENASTNodeBlockStatement;
  begin
   result:=nil;
@@ -609,6 +639,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseDebuggerStatement:TBESENASTNodeDebuggerStatement;
  begin
   result:=nil;
@@ -622,6 +653,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseBreakStatement:TBESENASTNodeBreakStatement;
  begin
   result:=nil;
@@ -650,6 +682,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseContinueStatement:TBESENASTNodeContinueStatement;
  begin
   result:=nil;
@@ -678,6 +711,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -704,6 +738,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseDoStatement:TBESENASTNodeDoStatement;
  var LabelSet:TBESENParserLabelSet;
  begin
@@ -726,6 +761,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseRegExpLiteral:TBESENASTNodeRegExpLiteral;
  begin
   result:=nil;
@@ -746,6 +782,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseStringLiteral:TBESENASTNodeStringLiteral;
  begin
   result:=nil;
@@ -763,6 +800,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseNumbericLiteral:TBESENASTNodeNumberLiteral;
  begin
   result:=nil;
@@ -786,6 +824,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseObjectLiteralProperty(const Parent:TBESENASTNodeObjectLiteral;const Count:integer):TBESENASTNodeObjectLiteralProperty;
  var PropertyType:TBESENASTNodeObjectLiteralPropertyType;
      PropertyAccessorType:TBESENASTNodeObjectLiteralPropertyAccessorType;
@@ -821,6 +860,7 @@ var CurrentToken:TBESENLexerToken;
     end;
    end;
   end;
+
  var Literal:TBESENASTNodeFunctionLiteral;
  begin
   result:=nil;
@@ -929,6 +969,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseObjectLiteral:TBESENASTNodeObjectLiteral;
  var Count:integer;
  begin
@@ -965,6 +1006,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseArrayLiteral:TBESENASTNodeArrayLiteral;
  var Count:integer;
  begin
@@ -1005,6 +1047,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParsePrimaryExpression:TBESENASTNodeExpression;
  begin
   result:=nil;
@@ -1064,6 +1107,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseArgumentList:TBESENASTNodeExpressions;
  var Count:integer;  
  begin
@@ -1097,6 +1141,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseLeftHandSideAndMemberExpression(IsLeftHandSideExpression:boolean=true):TBESENASTNodeExpression;
  var Expression:TBESENASTNodeExpression;
      Identifier:TBESENASTNodeIdentifier;
@@ -1167,6 +1212,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParsePostfixExpression:TBESENASTNodeExpression;
  var Expression:TBESENASTNodeExpression;
  begin
@@ -1200,6 +1246,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseUnaryExpression:TBESENASTNodeExpression;
  begin
   result:=nil;
@@ -1268,6 +1315,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseMultiplyExpression:TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1310,6 +1358,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseAdditionExpression:TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1344,6 +1393,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseShiftExpression:TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1386,6 +1436,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseRelationalExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1456,6 +1507,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseEqualityExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1506,6 +1558,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseBitwiseAndExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1529,6 +1582,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseBitwiseXorExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1552,6 +1606,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseBitwiseOrExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1575,6 +1630,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseLogicalAndExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1598,6 +1654,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseLogicalOrExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1621,6 +1678,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseConditionalExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Expression:TBESENASTNodeExpression;
  begin
@@ -1642,6 +1700,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseAssignmentExpression(InFlag:boolean):TBESENASTNodeExpression;
  var Left:TBESENASTNodeExpression;
  begin
@@ -1752,6 +1811,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseVariableDeclaration(InFlag:boolean):TBESENASTNodeVariableDeclaration;
  begin
   result:=nil;
@@ -1768,6 +1828,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseForStatement:TBESENASTNodeStatement;
  var OldInForHeader:boolean;
      State,i,ln:integer;
@@ -1898,6 +1959,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseIfStatement:TBESENASTNodeIfStatement;
  begin
   result:=nil;
@@ -1918,6 +1980,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseReturnStatement:TBESENASTNodeReturnStatement;
  begin
   result:=nil;
@@ -1940,6 +2003,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseThrowStatement:TBESENASTNodeThrowStatement;
  begin
   result:=nil;
@@ -1957,6 +2021,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseTryStatement:TBESENASTNodeTryStatement;
  begin
   result:=nil;
@@ -1992,6 +2057,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseSwitchStatement:TBESENASTNodeSwitchStatement;
  var CaseStatements:integer;
      CaseStatement:TBESENASTNodeCaseStatement;
@@ -2054,6 +2120,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseVariableStatement:TBESENASTNodeVariableStatement;
  var Count:integer;
  begin
@@ -2083,6 +2150,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseWhileStatement:TBESENASTNodeWhileStatement;
  var LabelSet:TBESENParserLabelSet;
  begin
@@ -2107,6 +2175,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseWithStatement:TBESENASTNodeWithStatement;
  begin
   result:=nil;
@@ -2128,6 +2197,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseExpressionStatement:TBESENASTNodeStatement;
  var Expression:TBESENASTNodeExpression;
      LabelSet,OldLabelSet:TBESENParserLabelSet;
@@ -2211,6 +2281,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseFunctionStatement:TBESENASTNodeStatement;
  var Expression:TBESENASTNodeAssignmentExpression;
  begin
@@ -2227,6 +2298,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseStatement(ResetCurrentLabelSet:boolean):TBESENASTNodeStatement;
  var LineNumber:integer;
      OldToken:TBESENLexerToken;
@@ -2313,6 +2385,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  function ParseSourceElement:TBESENASTNodeStatement;
  begin
   result:=nil;
@@ -2327,6 +2400,7 @@ var CurrentToken:TBESENLexerToken;
    raise;
   end;
  end;
+
  procedure CheckJSON(Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif});
  var Position:integer;
      CurrentChar:TBESENUTF32CHAR;
@@ -2382,20 +2456,24 @@ var CurrentToken:TBESENLexerToken;
     CharEOF:=true;
    end;
   end;
+
   procedure JSONError;
   begin
    raise EBESENSyntaxError.Create('JSON.parse');
   end;
+
   procedure SkipWhite;
   begin
    while (not CharEOF) and ((CurrentChar=$0009) or (CurrentChar=$000a) or (CurrentChar=$000d) or (CurrentChar=$0020)) do begin
     NextChar;
    end;
   end;
+
   function IsChar(c:widechar):boolean;
   begin
    result:=(not CharEOF) and (CurrentChar=word(c));
   end;
+
   procedure ExpectChar(c:widechar);
   begin
    if IsChar(c) then begin
@@ -2404,6 +2482,7 @@ var CurrentToken:TBESENLexerToken;
     JSONError;
    end;
   end;
+
   procedure CheckValue;
    procedure CheckString;
    begin
@@ -2589,6 +2668,7 @@ var CurrentToken:TBESENLexerToken;
     end;
    end;
   end;
+
  begin
   CharEOF:=false;
   Position:=1;
@@ -2599,9 +2679,11 @@ var CurrentToken:TBESENLexerToken;
    JSONError;
   end;
  end;
+
 var Statement:TBESENASTNodeStatement;
     OldIsStrict:boolean;
     OldToken:TBesenLexerToken;
+
  procedure ParseJSONStatements;
  var i:integer;
  begin
@@ -2624,6 +2706,7 @@ var Statement:TBESENASTNodeStatement;
    raise;
   end;
  end;
+
  procedure ParseProgramStatements;
  var IsDirectivePrologue,FirstDirective:boolean;
      Statements,i:integer;
@@ -2659,6 +2742,7 @@ var Statement:TBESENASTNodeStatement;
    raise;
   end;
  end;
+
 begin
  Labels:=nil;
  LabelSets:=nil;

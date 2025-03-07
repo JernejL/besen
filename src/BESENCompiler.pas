@@ -5906,70 +5906,84 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       CodeGeneratorContext.Registers[DestRegNr].IsWhat:=bcgtSTRING;
      end;
      bntPROPERTYEXPRESSION:begin
-      if DestRegNr<0 then begin
-       DestRegNr:=CodeGeneratorContext.AllocateRegister;
-      end;
-      r1:=-1;
-      Visit(TBESENASTNodePropertyExpression(ToVisit).LeftExpression,r1,true);
-      if r1<0 then begin
-       BESENThrowCodeGeneratorInvalidRegister;
-      end;
-      if TBESENASTNodePropertyExpression(ToVisit).Dot then begin
-       if IsValue(r1) or IsLocalVariableReference(r1) then begin
-        r2:=r1;
-       end else begin
-        r2:=CodeGeneratorContext.AllocateRegister;
-        GenGetValue(r1,r2);
-       end;
-       r3:=CodeGeneratorContext.AllocateRegister;
-       if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeStringLiteral then begin
-        v:=BESENStringValue(TBESENASTNodeStringLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value);
-        Code.GenLiteral(v,r3);
-       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeNumberLiteral then begin
-        v:=BESENNumberValue(TBESENASTNodeNumberLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value);
-        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
-        Code.GenLiteral(v,r3);
-       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeBooleanLiteral then begin
-        v.ValueType:=bvtBOOLEAN;
-        v.Bool:=TBESENASTNodeBooleanLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value;
-        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
-        Code.GenLiteral(v,r3);
-       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeNullLiteral then begin
-        v:=BESENNullValue;
-        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
-        Code.GenLiteral(v,r3);
-       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeIdentifier then begin
-        v:=BESENStringValue(TBESENASTNodeIdentifier(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Name);
-        Code.GenLiteral(v,r3);
-       end;
-       if not IsValueObject(r1) then begin
-        Code.GenOp(bopCHECKOBJECTCOERCIBLE,r2);
-       end;
-       Hash:=BESENHashKey(v.Str);
-       Code.GenOp(bopREF,DestRegNr,r2,r3,TBESEN(Instance).KeyIDManager.Get(v.Str,Hash),Hash,Code.GenPolymorphicInlineCacheInstruction,-1,-1,-1,-1);
-       CodeGeneratorContext.DeallocateRegister(r1);
-       CodeGeneratorContext.DeallocateRegister(r2);
-       CodeGeneratorContext.DeallocateRegister(r3);
-      end else begin
-       if IsValue(r1) or IsLocalVariableReference(r1) then begin
-        r2:=r1;
-       end else begin
-        r2:=CodeGeneratorContext.AllocateRegister;
-        GenGetValue(r1,r2);
-       end;
-       r3:=-1;
-       Visit(TBESENASTNodePropertyExpression(ToVisit).RightExpression,r3,true);
-       if r3<0 then begin
-        BESENThrowCodeGeneratorInvalidRegister;
-       end;
-       if IsValue(r3) then begin
-        r4:=r3;
-       end else begin
-        r4:=CodeGeneratorContext.AllocateRegister;
-        GenGetValue(r3,r4);
-       end;
-       if not IsValueObject(r1) then begin
-        Code.GenOp(bopCHECKOBJECTCOERCIBLE,r2);
+
+	      if DestRegNr<0 then begin
+	       DestRegNr:=CodeGeneratorContext.AllocateRegister;
+	      end;
+	      r1:=-1;
+	      Visit(TBESENASTNodePropertyExpression(ToVisit).LeftExpression,r1,true);
+	      if r1<0 then begin
+	       BESENThrowCodeGeneratorInvalidRegister;
+	      end;
+	      if TBESENASTNodePropertyExpression(ToVisit).Dot then begin
+	       if IsValue(r1) or IsLocalVariableReference(r1) then begin
+	        r2:=r1;
+	       end else begin
+	        r2:=CodeGeneratorContext.AllocateRegister;
+	        GenGetValue(r1,r2);
+	       end;
+	       r3:=CodeGeneratorContext.AllocateRegister;
+	       if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeStringLiteral then begin
+	        v:=BESENStringValue(TBESENASTNodeStringLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value);
+	        Code.GenLiteral(v,r3);
+	       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeNumberLiteral then begin
+	        v:=BESENNumberValue(TBESENASTNodeNumberLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value);
+	        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
+	        Code.GenLiteral(v,r3);
+	       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeBooleanLiteral then begin
+	        v.ValueType:=bvtBOOLEAN;
+	        v.Bool:=TBESENASTNodeBooleanLiteral(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Value;
+	        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
+	        Code.GenLiteral(v,r3);
+	       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeNullLiteral then begin
+	        v:=BESENNullValue;
+	        v:=BESENStringValue(TBESEN(Instance).ToStr(v));
+	        Code.GenLiteral(v,r3);
+	       end else if TBESENASTNodePropertyExpression(ToVisit).RightExpression is TBESENASTNodeIdentifier then begin
+	        v:=BESENStringValue(TBESENASTNodeIdentifier(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Name);
+	        Code.GenLiteral(v,r3);
+	       end;
+
+           if not IsValueObject(r1) then begin
+
+            // don't do this, it messes up something.
+            //v:=BESENStringValue(TBESENASTNodeIdentifier(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Name + ' A');  // untested. upam da je ok.
+            //r3:=CodeGeneratorContext.AllocateRegister;
+            //Code.GenLiteral(v,r3);
+	        Code.GenOp(bopCHECKOBJECTCOERCIBLE,r2{, r3});
+	       end;
+
+	       Hash:=BESENHashKey(v.Str);
+	       Code.GenOp(bopREF,DestRegNr,r2,r3,TBESEN(Instance).KeyIDManager.Get(v.Str,Hash),Hash,Code.GenPolymorphicInlineCacheInstruction,-1,-1,-1,-1);
+	       CodeGeneratorContext.DeallocateRegister(r1);
+	       CodeGeneratorContext.DeallocateRegister(r2);
+	       CodeGeneratorContext.DeallocateRegister(r3);
+	      end else begin
+	       if IsValue(r1) or IsLocalVariableReference(r1) then begin
+	        r2:=r1;
+	       end else begin
+	        r2:=CodeGeneratorContext.AllocateRegister;
+	        GenGetValue(r1,r2);
+	       end;
+	       r3:=-1;
+	       Visit(TBESENASTNodePropertyExpression(ToVisit).RightExpression,r3,true);
+	       if r3<0 then begin
+	        BESENThrowCodeGeneratorInvalidRegister;
+	       end;
+	       if IsValue(r3) then begin
+	        r4:=r3;
+	       end else begin
+	        r4:=CodeGeneratorContext.AllocateRegister;
+	        GenGetValue(r3,r4);
+	       end;
+	       if not IsValueObject(r1) then begin
+
+            // don't do this, it messes up something.
+            //v:=BESENStringValue(TBESENASTNodeIdentifier(TBESENASTNodePropertyExpression(ToVisit).RightExpression).Name + ' B');  // untested. upam da je ok.
+            //r3:=CodeGeneratorContext.AllocateRegister;
+	        //Code.GenLiteral(v,r3);
+            Code.GenOp(bopCHECKOBJECTCOERCIBLE,r2{, r3});
+
        end;
        if IsValueNumber(r3) then begin
         r5:=r4;
@@ -5999,6 +6013,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
       CodeGeneratorContext.Registers[DestRegNr].IsWhat:=bcgtREFERENCE;
      end;
+
      bntLOGICALANDEXPRESSION:begin
       if DestRegNr<0 then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;

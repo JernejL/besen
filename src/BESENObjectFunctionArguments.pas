@@ -100,7 +100,7 @@ begin
   end else begin
    result:=inherited GetEx(P,AResult,Descriptor,Base,Hash);
    if IsStrict and (P='caller') then begin
-    BESENThrowCaller;
+    BESENThrowCaller(self);
    end;
   end;
  end;
@@ -120,7 +120,7 @@ begin
   end else begin
    result:=inherited GetIndex(Index,ID,AResult,Base);
    if IsStrict and (ID=TBESEN(Instance).KeyIDManager.CallerID) then begin
-    BESENThrowCaller;
+    BESENThrowCaller(self);
    end;
   end;
  end;
@@ -154,7 +154,7 @@ function TBESENObjectFunctionArguments.DefineOwnPropertyEx(const P:TBESENString;
 var IsMapped,Allowed:boolean;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('DefineOwnProperty for "'+P+'" failed');
+  BESENThrowTypeError(self, 'DefineOwnProperty for "'+P+'" failed');
  end;
 begin
  if IsStrict or not assigned(ParameterMap) then begin
@@ -191,7 +191,7 @@ var i,j:integer;
     v:TBESENValue;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('Bad default value');
+  BESENThrowTypeError(self, 'Bad default value');
  end;
 begin
  if (TBESEN(Instance).Compatibility and COMPAT_JS)<>0 then begin

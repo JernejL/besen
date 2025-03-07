@@ -88,9 +88,11 @@ begin
  end;
  v:=TBESENObject(AInstance.Obj);
  Get('prototype',ov);
+
  if ov.ValueType<>bvtOBJECT then begin
-  raise EBESENTypeError.Create('Prototype not object');
+  raise EBESENTypeError.Create('Prototype not object but ' + besenvaluetypetostring(ov.ValueType));
  end;
+
  o:=TBESENObject(ov.Obj);
  while true do begin
   v:=v.Prototype;

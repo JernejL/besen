@@ -33,7 +33,7 @@ unit BESENErrors;
 
 interface
 
-uses SysUtils,Classes,BESENConstants,BESENTypes,BESENValue, BESENCodeContext;
+uses SysUtils,Classes,BESENConstants,BESENTypes,BESENValue, BESENCodeContext, BESENBaseObject;
 
 type EBESENError=class(Exception)
       public
@@ -137,30 +137,30 @@ type EBESENError=class(Exception)
      end;
 
 procedure BESENThrowReferenceError(const Msg:TBESENString);
-procedure BESENThrowSyntaxError(const Msg:TBESENString);
-procedure BESENThrowTypeError(const Msg:TBESENString);
+procedure BESENThrowSyntaxError(const InContext: TBESENCodeContext; const Msg:TBESENString);
+procedure BESENThrowTypeError(const InContext: Tobject; const Msg:TBESENString); // must have context.
 procedure BESENThrowRangeError(const Msg:TBESENString);
-procedure BESENThrowInternalError(const Msg:TBESENString);
-procedure BESENThrowError(const Msg:TBESENString);
+procedure BESENThrowInternalError(const InContext: Tobject; const Msg:TBESENString);
+procedure BESENThrowError(const InContext: TBESENCodeContext; const Msg:TBESENString);
 procedure BESENThrowCodeGeneratorInvalidRegister;
 procedure BESENThrowRecursionLimitReached;
-procedure BESENThrowNotDefined(const ARef:TBESENValue);
-procedure BESENThrowReference;
+procedure BESENThrowNotDefined(const InContext: TBESENCodeContext; const ARef:TBESENValue);
+procedure BESENThrowReference(const InContext: TBESENCodeContext );
 procedure BESENThrowNotAccessable(const InContext:TBESENCodeContext; const ARef:TBESENValue);
 procedure BESENThrowNotReadable(const P:TBESENString);
 procedure BESENThrowNotWritable(const P:TBESENString);
 procedure BESENThrowNoSetter(const P:TBESENString);
-procedure BESENThrowRcursivePrototypeChain;
+procedure BESENThrowRcursivePrototypeChain(const InContext: Tobject );
 procedure BESENThrowPut(const P:TBESENString);
-procedure BESENThrowPutRecursivePrototypeChain;
-procedure BESENThrowPutInvalidPrototype;
+procedure BESENThrowPutRecursivePrototypeChain(const InContext: Tobject );
+procedure BESENThrowPutInvalidPrototype(const InContext: Tobject );
 procedure BESENThrowDefineOwnProperty(const P:TBESENString);
-procedure BESENThrowCaller;
-procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const fn:TBESENString);
-procedure BESENThrowTypeErrorNotAConstructorObject;
-procedure BESENThrowTypeErrorObjectHasNoConstruct;
-procedure BESENThrowTypeErrorNotAFunction(const fn:TBESENString);
-procedure BESENThrowTypeErrorNotCallable;
+procedure BESENThrowCaller(const InContext: Tobject );
+procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const InContext: Tobject; const fn:TBESENString);
+procedure BESENThrowTypeErrorNotAConstructorObject(const InContext: TBESENCodeContext );
+procedure BESENThrowTypeErrorObjectHasNoConstruct(const InContext: TBESENCodeContext );
+procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn:TBESENString);
+procedure BESENThrowTypeErrorNotCallable(const InContext: TBESENCodeContext );
 
 implementation
 
@@ -502,52 +502,59 @@ begin
  Name:='ThrowException';
 end;
 
-procedure BESENThrowReferenceError(const Msg:TBESENString);
+procedure BESENThrowReferenceError(const Msg: TBESENString);
 begin
  raise EBESENReferenceError.CreateUTF16(Msg);
 end;
 
-procedure BESENThrowSyntaxError(const Msg:TBESENString);
+procedure BESENThrowSyntaxError(const InContext: TBESENCodeContext; const Msg: TBESENString);
 begin
  raise EBESENSyntaxError.CreateUTF16(Msg);
 end;
 
-procedure BESENThrowTypeError(const Msg:TBESENString);
+procedure BESENThrowTypeError(const InContext: Tobject; const Msg: TBESENString);
 begin
- raise EBESENTypeError.CreateUTF16(Msg);
+
+	// todo: get type of InContext and add info.
+
+	raise EBESENTypeError.CreateUTF16(Msg);
+
 end;
 
-procedure BESENThrowRangeError(const Msg:TBESENString);
+procedure BESENThrowRangeError(const Msg: TBESENString);
 begin
  raise EBESENRangeError.CreateUTF16(Msg);
 end;
 
-procedure BESENThrowInternalError(const Msg:TBESENString);
+procedure BESENThrowInternalError(const InContext: Tobject; const Msg: TBESENString);
 begin
- raise EBESENInternalError.CreateUTF16(Msg);
+
+	raise EBESENInternalError.CreateUTF16(Msg);
+
 end;
 
-procedure BESENThrowError(const Msg:TBESENString);
+procedure BESENThrowError(const InContext: TBESENCodeContext; const Msg: TBESENString);
 begin
  raise EBESENError.CreateUTF16(Msg);
 end;
 
 procedure BESENThrowCodeGeneratorInvalidRegister;
 begin
- BESENThrowError('Invalid register in code generation');
+ BESENThrowError(nil, 'Invalid register in code generation');
 end;
 
 procedure BESENThrowRecursionLimitReached;
 begin
- BESENThrowError('Recursion limit reached');
+ BESENThrowError(nil, 'Recursion limit reached');
 end;
 
-procedure BESENThrowNotDefined(const ARef:TBESENValue);
+procedure BESENThrowNotDefined(const InContext: TBESENCodeContext; const ARef: TBESENValue);
 begin
- BESENThrowReferenceError('"'+ARef.Str+'" is not defined');
+
+ BESENThrowReferenceError('"'+ARef.Str+'" is not defined variable in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' ');
 end;
 
-procedure BESENThrowReference;
+procedure BESENThrowReference(const InContext: TBESENCodeContext);
 begin
  BESENThrowReferenceError('Reference error');
 end;
@@ -555,83 +562,87 @@ end;
 procedure BESENThrowNotAccessable(const InContext: TBESENCodeContext; const ARef: TBESENValue);
 begin
 
- 	//BESENThrowReferenceError(InContext.Block.Ident + ' - ' + InContext.Block.Obj.ObjectClassName + ' - ' + InContext.Block.Obj.ObjectName);
+
+    //TBESEN(Instance).LineNumber:=Code.Locations[Operands^[0]].LineNumber;
+	//TBESEN(Instance).CurrentFile:=Code.Locations[Operands^[0]].Filename;
+
+ 	// BESENThrowReferenceError(InContext.Block.Ident + ' - ' + InContext.Block.Obj.ObjectClassName + ' - ' + InContext.Block.Obj.ObjectName);
 
 	if ARef.ReferenceIsStrict then
-		BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context (mode strict). Maybe it is not assigned or declared as a variable ( use "var '+ARef.Str+'" ).')
+		BESENThrowReferenceError('variable "'+ARef.Str+'" in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' is not declared in this context (mode strict). Maybe it is not assigned or declared as a variable ( use "var '+ARef.Str+'" ).')
 	else
-    	BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context.');
+    	BESENThrowReferenceError('variable "'+ARef.Str+'" in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' is not declared in this context.');
 
 end;
 
-procedure BESENThrowNotReadable(const P:TBESENString);
+procedure BESENThrowNotReadable(const P: TBESENString);
 begin
  BESENThrowReferenceError('"'+P+'" is not readable');
 end;
 
-procedure BESENThrowNotWritable(const P:TBESENString);
+procedure BESENThrowNotWritable(const P: TBESENString);
 begin
  BESENThrowReferenceError('"'+P+'" is not writable');
 end;
 
-procedure BESENThrowNoSetter(const P:TBESENString);
+procedure BESENThrowNoSetter(const P: TBESENString);
 begin
-  BESENThrowTypeError('"'+P+'" has no setter');
+  BESENThrowTypeError(nil, '"'+P+'" has no setter');
 end;
 
-procedure BESENThrowRcursivePrototypeChain;
+procedure BESENThrowRcursivePrototypeChain(const InContext: Tobject);
 begin
- BESENThrowTypeError('Recursive prototype chain not allowed');
+ BESENThrowTypeError(nil, 'Recursive prototype chain not allowed');
 end;
 
-procedure BESENThrowPut(const P:TBESENString);
+procedure BESENThrowPut(const P: TBESENString);
 begin
- BESENThrowTypeError('Put for "'+P+'" failed');
+ BESENThrowTypeError(nil, 'Put for "'+P+'" failed');
 end;
 
-procedure BESENThrowPutRecursivePrototypeChain;
+procedure BESENThrowPutRecursivePrototypeChain(const InContext: Tobject);
 begin
- BESENThrowTypeError('Put for "__proto__" failed, because the prototype chain would be recursive');
+ BESENThrowTypeError(nil, 'Put for "__proto__" failed, because the prototype chain would be recursive');
 end;
 
-procedure BESENThrowPutInvalidPrototype;
+procedure BESENThrowPutInvalidPrototype(const InContext: Tobject);
 begin
- BESENThrowTypeError('Put for "__proto__" failed, because the prototype would be invalid');
+ BESENThrowTypeError(nil, 'Put for "__proto__" failed, because the prototype would be invalid');
 end;
 
-procedure BESENThrowDefineOwnProperty(const P:TBESENString);
+procedure BESENThrowDefineOwnProperty(const P: TBESENString);
 begin
- BESENThrowTypeError('DefineOwnProperty for "'+P+'" failed');
+ BESENThrowTypeError(nil, 'DefineOwnProperty for "'+P+'" failed');
 end;
 
-procedure BESENThrowCaller;
+procedure BESENThrowCaller(const InContext: Tobject);
 begin
- BESENThrowTypeError('"caller" not allowed here');
+ BESENThrowTypeError(InContext, '"caller" not allowed here');
 end;
 
-procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const fn:TBESENString);
+procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const InContext: Tobject; const fn: TBESENString);
 begin
- BESENThrowTypeError('"'+fn+'" not writable or is a accessor descriptor');
+ BESENThrowTypeError(InContext, '"'+fn+'" not writable or is a accessor descriptor');
 end;
 
-procedure BESENThrowTypeErrorNotAConstructorObject;
+procedure BESENThrowTypeErrorNotAConstructorObject(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError('Not a constructor object');
+ BESENThrowTypeError(InContext, 'Not a constructor object');
 end;
 
-procedure BESENThrowTypeErrorObjectHasNoConstruct;
+procedure BESENThrowTypeErrorObjectHasNoConstruct(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError('Object has no construct');
+ BESENThrowTypeError(InContext, 'Object has no construct');
 end;
 
-procedure BESENThrowTypeErrorNotAFunction(const fn:TBESENString);
+procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn: TBESENString);
 begin
- BESENThrowTypeError(fn + ' is not a valid method');
+ BESENThrowTypeError(InContext, fn + ' is not a valid method');
 end;
 
-procedure BESENThrowTypeErrorNotCallable;
+procedure BESENThrowTypeErrorNotCallable(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError('Not callable');
+ BESENThrowTypeError(InContext, 'Not callable');
 end;
 
 end.

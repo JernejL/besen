@@ -170,6 +170,8 @@ type TBESENReferenceBaseValueType=ptruint;
 
      TBESENRefBaseValueToCallThisArgValueProcs=array[brbvtFIRST..brbvtLAST] of TBESENRefBaseValueToCallThisArgValueProc;
 
+function besenvaluetypetostring(i: integer): TBESENString;
+
 procedure BESENCopyReferenceBaseValueUndefined(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
 procedure BESENCopyReferenceBaseValueBoolean(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
 procedure BESENCopyReferenceBaseValueNumber(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
@@ -287,6 +289,26 @@ var BESENEmptyValue:TBESENValue;
 implementation
 
 uses BESEN,BESENNumberUtils,BESENEnvironmentRecord;
+
+function besenvaluetypetostring(i: integer): TBESENString;
+begin
+
+	case i of
+		bvtUNDEFINED:	exit('UNDEFINED');
+		bvtNULL:		exit('NULL');
+		bvtBOOLEAN:     exit('BOOLEAN');
+		bvtNUMBER:      exit('NUMBER');
+		bvtSTRING:      exit('STRING');
+		bvtOBJECT:      exit('OBJECT');
+		bvtREFERENCE:   exit('REFERENCE');
+		bvtLOCAL:       exit('LOCAL');
+		bvtENVREC:      exit('ENVREC');
+		bvtNONE:        exit('NONE');
+	end;
+
+	exit('besenvaluetypetostring: UNKNOWN.');
+
+end;
 
 procedure BESENCopyReferenceBaseValueUndefined(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
 begin

@@ -190,7 +190,7 @@ begin
     if assigned(Item^.PropType) then begin
      case Item^.PropType^.Kind of
       tkLString,tkWString{$ifdef fpc},tkAString{$endif},tkVariant{$ifdef fpc},tkUString{$endif},
-      tkInteger,tkChar,tkFloat,tkEnumeration,tkWChar,tkSet{$ifdef fpc},tkSString{$endif},
+      tkInteger,tkBool, tkChar,tkFloat,tkEnumeration,tkWChar,tkSet{$ifdef fpc},tkSString{$endif},
       tkInt64{$ifdef fpc},tkQWORD{$endif},tkClass:begin
 {$ifdef BESENEmbarcaderoNextGen}
        if not assigned(Item^.GetProc) then begin
@@ -287,6 +287,10 @@ begin
    V.ValueType:=bvtSTRING;
    V.Str:={$ifdef BESENEmbarcaderoNextGen}GetStrProp{$else}GetWideStrProp{$endif}(self,Item);
   end;
+  tkBool:begin
+   V.ValueType:=bvtBOOLEAN;
+   V.Bool:=(GetOrdProp(self,Item) <> 0);
+  end;
   tkEnumeration:begin
    V.ValueType:=bvtSTRING;
    V.Str:=GetEnumProp(self,Item);
@@ -333,7 +337,7 @@ begin
   end;
   else begin
    if Throw then begin
-    BESENThrowTypeError('Unknown native property data type');
+    BESENThrowTypeError(self, 'Unknown native property data type');
    end;
    exit;
   end;
@@ -380,6 +384,9 @@ begin
   tkWString{$ifdef fpc},tkUString{$endif}{$ifdef BESENEmbarcaderoNextGen},tkUString{$endif}:begin
    {$ifdef BESENEmbarcaderoNextGen}SetStrProp{$else}SetWideStrProp{$endif}(self,Item,TBESEN(Instance).ToStr(V));
   end;
+  tkBool:begin
+   SetOrdProp(self,Item,ord(TBESEN(Instance).ToBool(V)));
+  end;
   tkEnumeration:begin
    SetEnumProp(self,Item,TBESEN(Instance).ToStr(V));
   end;
@@ -417,7 +424,7 @@ begin
   end;
   else begin
    if Throw then begin
-    BESENThrowTypeError('Wrong native property data type');
+    BESENThrowTypeError(self, 'Wrong native property data type');
    end;
    exit;
   end;
@@ -499,10 +506,12 @@ begin
 end;
 
 function TBESENNativeObject.DeleteEx(const P:TBESENString;Throw:TBESENBoolean;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):TBESENBoolean;
- procedure BESENThrowIt;
- begin
-  BESENThrowTypeError('Delete for "'+P+'" failed');
- end;
+
+	procedure BESENThrowIt;
+	begin
+		BESENThrowTypeError(self, 'Delete for "'+P+'" failed');
+	end;
+
 begin
  LastProp:=Properties.Get(P,Hash);
  if assigned(LastProp) and (LastProp.PropIndex>=0) then begin
@@ -550,7 +559,7 @@ end;
 
 procedure TBESENNativeObject.Call(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue);
 begin
- BESENThrowTypeError('Not a function');
+ BESENThrowTypeError(self, 'Not a function');
 end;
 
 function TBESENNativeObject.HasConstruct:TBESENBoolean;

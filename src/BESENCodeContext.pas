@@ -491,7 +491,7 @@ begin
   TBESEN(Instance).GarbageCollector.Add(O);
  end;
  if not assigned(O) then begin
-  BESENThrowNotDefined(ARef);
+  BESENThrowNotDefined(self, ARef);
  end;
  O.GarbageCollectorLock;
  try
@@ -528,7 +528,7 @@ end;
 procedure TBESENCodeContext.GetObject(const ARef:TBESENValue;var AResult:TBESENValue);
 begin
  if not assigned(ARef.ReferenceBase.Obj) then begin
-  BESENThrowNotDefined(ARef);
+  BESENThrowNotDefined(self, ARef);
  end;
  if ARef.ReferenceID<0 then begin
   if ARef.ReferenceIndex<0 then begin
@@ -556,7 +556,7 @@ end;
 
 procedure TBESENCodeContext.GetUndefined(const ARef:TBESENValue;var AResult:TBESENValue);
 begin
- BESENThrowNotDefined(ARef);
+ BESENThrowNotDefined(self, ARef);
 end;
 
 procedure TBESENCodeContext.GetValue(const AValue:TBESENValue;var AResult:TBESENValue);
@@ -695,7 +695,7 @@ begin
    Context.VariableEnvironment.EnvironmentRecord.SetIndexValue(ARef.LocalIndex,-1,AValue,TBESEN(Instance).IsStrict);
   end;
   else begin
-   BESENThrowReference;
+   BESENThrowReference(self);
   end;
  end;
 end;
@@ -860,9 +860,9 @@ begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+3]];
   end;
   if ConstructorValue^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAConstructorObject;
+   BESENThrowTypeErrorNotAConstructorObject(self);
   end else if not TBESENObject(ConstructorValue^.Obj).HasConstruct then begin
-   BESENThrowTypeErrorObjectHasNoConstruct;
+   BESENThrowTypeErrorObjectHasNoConstruct(self);
   end;
   TBESEN(Instance).GarbageCollector.TriggerCollect;
   TBESEN(Instance).ObjectConstruct(TBESENObject(ConstructorValue^.Obj),BESENUndefinedValue,@ParamArgs[0],CountArguments,RegisterValues[Operands^[0]]);
@@ -885,9 +885,9 @@ begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+4]];
   end;
   if Func^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAFunction(RegisterValues[Operands^[1]].STR);
+   BESENThrowTypeErrorNotAFunction(self, RegisterValues[Operands^[1]].STR);
   end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
-   BESENThrowTypeErrorNotCallable;
+   BESENThrowTypeErrorNotCallable(self);
   end;
   if Ref^.ValueType=bvtREFERENCE then begin
    BESENRefBaseValueToCallThisArgValueProcs[Ref^.ReferenceBase.ValueType](CallThisArg,Ref^.ReferenceBase);
@@ -1438,7 +1438,7 @@ begin
     end;
     brbvtENVREC:begin
      if up^.ReferenceIsStrict then begin
-      BESENThrowSyntaxError('"delete" not allowed here');
+      BESENThrowSyntaxError(self, '"delete" not allowed here');
      end;
      if up^.ReferenceID<0 then begin
       if up^.ReferenceIndex<0 then begin
@@ -1454,7 +1454,7 @@ begin
     end;
     else begin
      if up^.ReferenceIsStrict then begin
-      BESENThrowSyntaxError('"delete" not allowed here');
+      BESENThrowSyntaxError(self, '"delete" not allowed here');
      end else begin
       vp^.ValueType:=bvtBOOLEAN;
       vp^.Bool:=true;
@@ -1464,7 +1464,7 @@ begin
   end;
   bvtLOCAL:begin
    if TBESEN(Instance).IsStrict then begin
-    BESENThrowSyntaxError('"delete" not allowed here');
+    BESENThrowSyntaxError(self, '"delete" not allowed here');
    end;
    vp^.ValueType:=bvtBOOLEAN;
    vp^.Bool:=Context.VariableEnvironment.EnvironmentRecord.DeleteIndex(up^.LocalIndex,-1);
@@ -1749,7 +1749,7 @@ begin
  b:=@RegisterValues[Operands^[2]];
  r^.ValueType:=bvtBOOLEAN;
  if b^.ValueType<>bvtOBJECT then begin
-  BESENThrowTypeError('Not a object');
+  BESENThrowTypeError(self, 'Not a object');
  end else begin
   r^.Bool:=TBESEN(Instance).ObjectInstanceOf(a^,TBESENObject(b^.Obj));
  end;
@@ -1763,7 +1763,7 @@ begin
  b:=@RegisterValues[Operands^[2]];
  r^.ValueType:=bvtBOOLEAN;
  if b^.ValueType<>bvtOBJECT then begin
-  BESENThrowTypeError('Not a object');
+  BESENThrowTypeError(self, 'Not a object');
  end else begin
   r^.Bool:=TBESENObject(b^.Obj).HasPropertyEx(TBESEN(Instance).ToStr(a^),Descriptor);
  end;
@@ -1840,7 +1840,7 @@ begin
   EnumBlock:=Block;
   inc(BlockLevel);
  end else begin
-  BESENThrowTypeError('Not an object');
+  BESENThrowTypeError(self, 'Not an object');
  end;
 end;
 
@@ -2032,7 +2032,7 @@ var up:PBESENValue;
     der:TBESENDeclarativeEnvironmentRecord;
  procedure ThrowIt(const s:TBESENSTRING);
  begin
-  BESENThrowSyntaxError('"'+s+'" not allowed here');
+  BESENThrowSyntaxError(self, '"'+s+'" not allowed here');
  end;
  procedure Check(const s:TBESENSTRING);
  begin
@@ -2082,8 +2082,13 @@ begin
 end;
 
 procedure TBESENCodeContext.OpCHECKOBJECTCOERCIBLE(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+//var StrReg:PBESENValue;
 begin
- BESENCheckObjectCoercible(RegisterValues[Operands^[0]]);
+
+ //StrReg:=@RegisterValues[Operands^[1]];
+
+ BESENCheckObjectCoercible(RegisterValues[Operands^[0]], TBESEN(Instance), self, 'unknown.'{StrReg.Str}); // Code.Body,PC
+
 end;
 
 procedure TBESENCodeContext.OpPUTOBJVALUE(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -2994,9 +2999,9 @@ begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+3]];
   end;
   if ConstructorValue^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAConstructorObject;
+   BESENThrowTypeErrorNotAConstructorObject(self);
   end else if not TBESENObject(ConstructorValue^.Obj).HasConstruct then begin
-   BESENThrowTypeErrorObjectHasNoConstruct;
+   BESENThrowTypeErrorObjectHasNoConstruct(self);
   end;
   if Trace(bttCALL) then begin
    TBESEN(Instance).GarbageCollector.TriggerCollect;
@@ -3028,13 +3033,13 @@ begin
    if ( (RegisterValues[Operands^[1]].valuetype = bvtSTRING) or (RegisterValues[Operands^[1]].valuetype = bvtREFERENCE) ) then
 
     // todo: check if TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME is legit at all.
-   	BESENThrowTypeErrorNotAFunction(TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR)
+   	BESENThrowTypeErrorNotAFunction(self, TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR)
 
    else
-    BESENThrowTypeErrorNotAFunction('unknown type: ' + IntToStr(RegisterValues[Operands^[1]].valuetype));
+    BESENThrowTypeErrorNotAFunction(self, 'unknown type: ' + IntToStr(RegisterValues[Operands^[1]].valuetype));
 
   end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
-   BESENThrowTypeErrorNotCallable;
+   BESENThrowTypeErrorNotCallable(self);
   end;
   if Ref^.ValueType=bvtREFERENCE then begin
    BESENRefBaseValueToCallThisArgValueProcs[Ref^.ReferenceBase.ValueType](CallThisArg,Ref^.ReferenceBase);
@@ -3801,7 +3806,7 @@ begin
     end;
     for i:=0 to length(Code.Variables)-1 do begin
      if not EnvironmentRecord.SetBindingValueIndex(Code.Variables[i].Name,i) then begin
-      BESENThrowInternalError('Internal error: 201003160136-0000');
+      BESENThrowInternalError(self, 'Internal error: 201003160136-0000');
      end;
     end;
    end;

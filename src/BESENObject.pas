@@ -241,13 +241,13 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
        property Prototype:TBESENObject read PrototypeObject write SetPrototypeObject;
      end;
 
-procedure BESENCheckObjectCoercible(const v:TBESENValue); {$ifdef caninline}inline;{$endif}
+procedure BESENCheckObjectCoercible(const v:TBESENValue; const Instance:Tobject;const InContext: Tobject; const Propertyname: tbesenstring); {$ifdef caninline}inline;{$endif}
 
 function BESENIsCallable(const v:TBESENValue):TBESENBoolean; {$ifdef caninline}inline;{$endif}
 
 implementation
 
-uses BESEN,BESENUtils,BESENArrayUtils,BESENHashUtils,BESENStringUtils,BESENCode,BESENErrors,
+uses BESEN,BESENUtils,BESENArrayUtils,BESENHashUtils,BESENStringUtils,BESENCode,BESENErrors, BESENContext, BESENCodeContext,
      BESENObjectNativeFunction;
 
 function SortedKeyNormal(AProp:TBESENString):TBESENString;
@@ -1442,7 +1442,7 @@ begin
   Obj:=NewPrototypeObject;
   while assigned(Obj) do begin
    if Obj=self then begin
-    BESENThrowRcursivePrototypeChain;
+    BESENThrowRcursivePrototypeChain(self);
    end;
    Obj:=Obj.Prototype;
   end;
@@ -1599,7 +1599,7 @@ begin
    while assigned(Obj) do begin
     if Obj=self then begin
      if Throw then begin
-      BESENThrowPutRecursivePrototypeChain;
+      BESENThrowPutRecursivePrototypeChain(self);
      end;
      exit;
     end;
@@ -1609,7 +1609,7 @@ begin
   end;
   else begin
    if Throw then begin
-    BESENThrowPutInvalidPrototype;
+    BESENThrowPutInvalidPrototype(self);
    end;
   end;
  end;
@@ -1994,7 +1994,7 @@ end;
 procedure TBESENObject.PutIndex(const Index,ID:longint;const V:TBESENValue;Throw:TBESENBoolean);
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('Put failed');
+  BESENThrowTypeError(self, 'Put failed');
  end;
  procedure PutSetter(Obj:TBESENObject;Prop:TBESENObjectProperty);
  var TempValue:TBESENValue;
@@ -2100,7 +2100,7 @@ end;
 function TBESENObject.DeleteEx(const P:TBESENString;Throw:TBESENBoolean;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):TBESENBoolean;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('Delete for "'+P+'" failed');
+  BESENThrowTypeError(self, 'Delete for "'+P+'" failed');
  end;
 begin
  if GetOwnProperty(P,Descriptor,Hash) then begin
@@ -2154,7 +2154,7 @@ var Prop:TBESENObjectProperty;
     CurrentResult:boolean;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('DefineOwnProperty for "'+P+'" failed');
+  BESENThrowTypeError(self, 'DefineOwnProperty for "'+P+'" failed');
  end;
 begin
  result:=false;
@@ -2496,12 +2496,27 @@ begin
  inherited Mark;
 end;
 
-procedure BESENCheckObjectCoercible(const v:TBESENValue); {$ifdef caninline}inline;{$endif}
+procedure BESENCheckObjectCoercible(const v:TBESENValue; const Instance:Tobject;const InContext: Tobject; const Propertyname: tbesenstring); {$ifdef caninline}inline;{$endif}
+var
+    addy: string;
 begin
  case v.ValueType of
   bvtUNDEFINED,bvtNULL,bvtREFERENCE,bvtLOCAL:begin
 
-   BESENThrowTypeError('CheckObjectCoercible failed, possibly attempted object call non-object (your object is probably null or undefined).');
+   addy:= Propertyname;
+
+   if assigned(InContext) then begin
+
+    // addy:= TBESENCodeContext(InContext).;
+
+    // BESENStringValue(TBESENASTNodeObjectLiteralProperty(ToVisit).Name)
+
+    // addy:= inttostr(ptruint(TBESENCodeContext(InContext).Block)); //  + ' - ' + TBESENCodeContext(InContext).Block.Obj.ObjectClassName + ' - ' + TBESENCodeContext(InContext).Block.Obj.ObjectName;
+
+   end;
+
+   // BESENThrowTypeError(nil, 'CheckObjectCoercible failed to call "' + addy + '" on variable of type "' + besenvaluetypetostring(v.ValueType) + '" in file ' + TBESEN(Instance).GetFilename() + ':' + inttostr(TBESEN(Instance).LineNumber) + ', possibly attempted object call non-object (your object is probably null or undefined).');
+
   end;
  end;
 end;

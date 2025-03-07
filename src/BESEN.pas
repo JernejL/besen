@@ -630,7 +630,7 @@ procedure TBESEN.SetFilename(AFilename: TBESENANSISTRING);
 var i:Integer;
 begin
  for i:=0 to Length(FFilenames)-1 do
- if FFilenames[i] = AFilename then
+ if lowercase(FFilenames[i]) = lowercase(AFilename) then
  begin
   FilenameSet:=i;
   Exit;
@@ -749,7 +749,7 @@ var OldRecursionLimit:integer;
     OldSecurityDomain:pointer;
 begin
  if not assigned(Obj) then begin
-  BESENThrowTypeError('Null object');
+  BESENThrowTypeError(self, 'Null object');
  end;
  OldRecursionLimit:=RecursionLimit;
  OldSecurityDomain:=SecurityDomain;
@@ -769,13 +769,13 @@ begin
    if Obj.HasConstruct then begin
     Obj.Construct(ThisArgument,Arguments,CountArguments,AResult);
    end else begin
-    BESENThrowTypeError('No constructable');
+    BESENThrowTypeError(self, 'No constructable');
    end;
   end else begin
    if Obj.HasCall then begin
     Obj.Call(ThisArgument,Arguments,CountArguments,AResult);
    end else begin
-    BESENThrowTypeError('No callable');
+    BESENThrowTypeError(self, 'No callable');
    end;
   end;
  finally
@@ -793,10 +793,10 @@ begin
    if Obj.HasCall then begin
     Obj.Call(ThisArgument,Arguments,CountArguments,AResult);
    end else begin
-    BESENThrowTypeError('No callable');
+    BESENThrowTypeError(self, 'No callable');
    end;
   end else begin
-   BESENThrowTypeError('Null object');
+   BESENThrowTypeError(self, 'Null object');
   end;
  end;
 end;
@@ -810,10 +810,10 @@ begin
    if Obj.HasConstruct then begin
     Obj.Construct(ThisArgument,Arguments,CountArguments,AResult);
    end else begin
-    BESENThrowTypeError('No constructable');
+    BESENThrowTypeError(self, 'No constructable');
    end;
   end else begin
-   BESENThrowTypeError('Null object');
+   BESENThrowTypeError(self, 'Null object');
   end;
  end;
 end;
@@ -1231,7 +1231,7 @@ end;
 procedure TBESEN.ToPrimitiveValue(const AValue,AType:TBESENValue;var AResult:TBESENValue);
  procedure BESENThrowIt;
  begin
-  BESENThrowTypeError('Bad object');
+  BESENThrowTypeError(self, 'Bad object');
  end;
 begin
  if AValue.ValueType=bvtOBJECT then begin
@@ -1253,7 +1253,7 @@ end;
 procedure TBESEN.ToBooleanValue(const AValue:TBESENValue;var AResult:TBESENValue);
  procedure BESENThrowIt;
  begin
-  BESENThrowTypeError('Bad to boolean conversation');
+  BESENThrowTypeError(self, 'Bad to boolean conversation');
  end;
 var bo:TBESENObject;
     vo:TBESENValue;
@@ -1305,7 +1305,7 @@ end;
 procedure TBESEN.ToNumberValue(const AValue:TBESENValue;var AResult:TBESENValue);
  procedure BESENThrowIt;
  begin
-  BESENThrowTypeError('Bad to number conversation');
+  BESENThrowTypeError(self, 'Bad to number conversation');
  end;
 const BooleanToNumber:array[boolean] of TBESENNumber=(0.0,1.0);
 var v:TBESENValue;
@@ -1361,7 +1361,7 @@ end;
 procedure TBESEN.ToStringValue(const AValue:TBESENValue;var AResult:TBESENValue);
  procedure BESENThrowIt;
  begin
-  BESENThrowTypeError('Bad to string conversation');
+  BESENThrowTypeError(self, 'Bad to string conversation');
  end;
 var v:TBESENValue;
 begin
@@ -1406,7 +1406,7 @@ end;
 procedure TBESEN.ToObjectValue(const AValue:TBESENValue;var AResult:TBESENValue);
  procedure BESENThrowIt;
  begin
-  BESENThrowTypeError('Bad to object conversation');
+  BESENThrowTypeError(self, 'Bad to object conversation');
  end;
 begin
  case AValue.ValueType of

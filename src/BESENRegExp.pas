@@ -2079,7 +2079,7 @@ function TBESENRegExp.Execute(PC:longint;const Input:TBESENString;var State:TBES
   if (a+2)<=length(ByteCode) then begin
    result:=(ByteCode[a] shl 8) or ByteCode[a+1];
   end else begin
-   BESENThrowInternalError('Internal error: 201002250421-0000');
+   BESENThrowInternalError(self, 'Internal error: 201002250421-0000');
    result:=0;
   end;
  end;
@@ -2092,7 +2092,7 @@ function TBESENRegExp.Execute(PC:longint;const Input:TBESENString;var State:TBES
   if (i>=0) and (i<length(Input)) then begin
    result:=word(widechar(Input[i+1]));
   end else begin
-   BESENThrowInternalError('Internal error: 201002250421-0001');
+   BESENThrowInternalError(self, 'Internal error: 201002250421-0001');
    result:=0;
   end;
  end;
@@ -2472,7 +2472,7 @@ begin
      end;
     end;
     else begin
-     BESENThrowInternalError('Internal error: 201002250323-0000');
+     BESENThrowInternalError(self, 'Internal error: 201002250323-0000');
     end;
    end;
   end;

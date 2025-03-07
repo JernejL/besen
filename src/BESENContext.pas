@@ -276,7 +276,7 @@ procedure TBESENContext.InitializeDeclarationBindingInstantiation(const Body:TBE
         go.DefineOwnPropertyEx(fn^,BESENDataPropertyDescriptor(BESENUndefinedValue,[bopaWRITABLE,bopaENUMERABLE]),true,Descriptor);
        end;
       end else if (([boppGETTER,boppSETTER]*Descriptor.Presents)<>[]) or ((([boppWRITABLE,boppENUMERABLE]*Descriptor.Presents)<>[boppWRITABLE,boppENUMERABLE]) or (([bopaWRITABLE,bopaENUMERABLE]*Descriptor.Attributes)<>[bopaWRITABLE,bopaENUMERABLE])) then begin
-       BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(fn^);
+       BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(body, fn^);
       end;
      end;
      Env.SetMutableBinding(fn^,BESENObjectValue(fo),IsStrict);

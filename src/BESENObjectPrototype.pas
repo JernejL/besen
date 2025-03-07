@@ -97,7 +97,7 @@ begin
       ResultValue:=BESENStringValue('[object Object]');
      end;
     end else begin
-     BESENThrowTypeError('Null this object');
+     BESENThrowTypeError(self, 'Null this object');
     end;
    finally
     o.GarbageCollectorUnlock;
@@ -118,13 +118,13 @@ begin
    if (v.ValueType=bvtOBJECT) and assigned(TBESENObject(v.Obj)) and TBESENObject(v.Obj).HasCall then begin
     TBESEN(Instance).ObjectCall(TBESENObject(v.Obj),ThisArgument,Arguments,CountArguments,ResultValue);
    end else begin
-    BESENThrowTypeError('Null this object');
+    BESENThrowTypeError(self, 'Null this object');
    end;
   finally
    o.GarbageCollectorUnlock;
   end;
  end else begin
-  BESENThrowTypeError('Null this object');
+  BESENThrowTypeError(self, 'Null this object');
  end;
 end;
 

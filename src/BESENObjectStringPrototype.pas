@@ -192,7 +192,7 @@ var v:TBESENValue;
     i:integer;
     s:TBESENString;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeCharAt');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  v:=BESENEmptyValue;
  if (CountArguments>0) and (Arguments^[0]^.ValueType<>bvtUNDEFINED) then begin
@@ -216,7 +216,7 @@ var v:TBESENValue;
     i:integer;
     s:TBESENString;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeCharCodeAt');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  if (CountArguments>0) and (Arguments^[0]^.ValueType<>bvtUNDEFINED) then begin
   i:=-1;
@@ -239,7 +239,7 @@ procedure TBESENObjectStringPrototype.NativeConcat(const ThisArgument:TBESENValu
 var s:TBESENString;
     i:integer;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeConcat');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  for i:=0 to CountArguments-1 do begin
   s:=s+TBESEN(Instance).ToStr(Arguments^[i]^);
@@ -252,7 +252,7 @@ var v:TBESENValue;
     i,j,k,l,ls,p,fp,fl:integer;
     s,ss:TBESENString;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeIndexOf');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  if CountArguments<1 then begin
   ss:='';
@@ -296,7 +296,7 @@ var v,vi:TBESENValue;
     i,j,k,l,ls,p,fp,fl:integer;
     s,ss:TBESENString;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeLastIndexOf');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  if CountArguments<1 then begin
   ss:='';
@@ -348,7 +348,7 @@ end;
 procedure TBESENObjectStringPrototype.NativeLocaleCompare(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
 var s,ss:TBESENString;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeLocaleCompare');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  if CountArguments<1 then begin
   ss:='undefined';
@@ -374,7 +374,7 @@ var RegExp:TBESENObjectRegExp;
     n,Matches:integer;
     ValuePointers:array[0..0] of PBESENValue;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeMatch');
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
  v:=BESENEmptyValue;
@@ -572,7 +572,7 @@ var RegExp:TBESENObjectRegExp;
     ValuePointers:array[0..0] of PBESENValue;
     HasOutputString:boolean;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeReplace');
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
  RegExp:=TBESENObjectRegExp(RegExpArg(Arguments,CountArguments));
@@ -664,7 +664,7 @@ var RegExp:TBESENObjectRegExp;
     i:integer;
     Captures:TBESENRegExpCaptures;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeSearch');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  RegExp:=TBESENObjectRegExp(RegExpArg(Arguments,CountArguments));
  Captures:=nil;
@@ -685,7 +685,7 @@ procedure TBESENObjectStringPrototype.NativeSlice(const ThisArgument:TBESENValue
 var s:TBESENString;
     len,intStart,intEnd,sFrom,sTo,span:integer;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeSlice');
 
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
@@ -757,7 +757,7 @@ var v,av,r:TBESENValue;
     n,Done:boolean;
     ValuePointers:array[0..0] of PBESENValue;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeSplit');
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
  v:=BESENEmptyValue;
@@ -889,7 +889,7 @@ var v:TBESENValue;
     s:TBESENString;
     a,b,ss,se,sl:integer;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeSubstring');
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
  if CountArguments<1 then begin
@@ -927,25 +927,25 @@ end;
 
 procedure TBESENObjectStringPrototype.NativeToLowerCase(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeToLowerCase');
  ResultValue:=BESENStringValue(BESENLowercase(TBESEN(Instance).ToStr(ThisArgument)));
 end;
 
 procedure TBESENObjectStringPrototype.NativeToLocaleLowerCase(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeToLocaleLowerCase');
  ResultValue:=BESENStringValue(BESENLowercase(TBESEN(Instance).ToStr(ThisArgument)));
 end;
 
 procedure TBESENObjectStringPrototype.NativeToUpperCase(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeToUpperCase');
  ResultValue:=BESENStringValue(BESENUppercase(TBESEN(Instance).ToStr(ThisArgument)));
 end;
 
 procedure TBESENObjectStringPrototype.NativeToLocaleUpperCase(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeToLocaleUpperCase');
  ResultValue:=BESENStringValue(BESENUppercase(TBESEN(Instance).ToStr(ThisArgument)));
 end;
 
@@ -953,7 +953,7 @@ procedure TBESENObjectStringPrototype.NativeTrim(const ThisArgument:TBESENValue;
 var s:TBESENString;
     StartPosition,LengthCount:integer;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeTrim');
  s:=TBESEN(Instance).ToStr(ThisArgument);
  LengthCount:=length(s);
  if LengthCount>0 then begin
@@ -974,7 +974,7 @@ var v:TBESENValue;
     s:TBESENString;
     ss,sl:integer;
 begin
- BESENCheckObjectCoercible(ThisArgument);
+ BESENCheckObjectCoercible(ThisArgument, instance, nil, 'NativeSubstr');
  s:=TBESEN(Instance).ToStr(ThisArgument);
 
  if CountArguments<1 then begin

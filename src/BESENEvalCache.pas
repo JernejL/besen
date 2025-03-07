@@ -116,7 +116,7 @@ begin
     result.CallerStrict:=CallerStrict;
     Node:=TBESEN(Instance).Compile({$ifndef BESENSingleStringType}BESENUTF16ToUTF8({$endif}Source{$ifndef BESENSingleStringType}){$endif});
     if (not assigned(Node)) or not (Node is TBESENASTNodeProgram) then begin
-     BESENThrowError('No program');
+     BESENThrowError(nil, 'No program');
     end;
     result.Node:=TBESENASTNodeProgram(Node);
     try

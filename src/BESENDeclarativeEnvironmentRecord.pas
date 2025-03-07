@@ -387,7 +387,7 @@ function TBESENDeclarativeEnvironmentRecord.CreateMutableBinding(const N:TBESENS
 var Item:PBESENDeclarativeEnvironmentRecordHashItem;
 begin
  if assigned(GetKey(N,Hash)) then begin
-  BESENThrowTypeError('CreateMutableBinding for "'+N+'" failed');
+  BESENThrowTypeError(self, 'CreateMutableBinding for "'+N+'" failed');
  end;
  Item:=NewKey(N,false,Hash);
  Item^.Value.ValueType:=bvtUNDEFINED;
@@ -399,24 +399,32 @@ end;
 
 function TBESENDeclarativeEnvironmentRecord.SetMutableBindingEx(const N:TBESENString;const V:TBESENValue;const S:TBESENBoolean;var Descriptor,OwnDescriptor:TBESENObjectPropertyDescriptor;var TempValue:TBESENValue;Hash:TBESENHash=0):TBESENBoolean;
 var Item:PBESENDeclarativeEnvironmentRecordHashItem;
+
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('SetMutableBinding for "'+N+'" failed');
+  BESENThrowTypeError(self, 'SetMutableBinding for "'+N+'" failed');
  end;
+
 begin
+
  result:=false;
  Item:=GetKey(N,Hash);
+
  if not assigned(Item) then begin
   ThrowIt;
+
  end else if Item^.Mutable then begin
   BESENCopyValue(Item^.Value,V);
   Item^.Initialized:=true;
   result:=true;
  end else begin
+
   if S then begin // will added/fixed in ES5 errata too
    ThrowIt;
   end;
+
  end;
+
 end;
 
 procedure TBESENDeclarativeEnvironmentRecord.GetBindingValueEx(const N:TBESENString;const S:TBESENBoolean;var R:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0);
@@ -427,7 +435,7 @@ var Item:PBESENDeclarativeEnvironmentRecordHashItem;
  end;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('GetBindingValue for "'+N+'" failed');
+  BESENThrowTypeError(self, 'GetBindingValue for "'+N+'" failed');
  end;
 begin
  Item:=GetKey(N,Hash);
@@ -476,7 +484,7 @@ function TBESENDeclarativeEnvironmentRecord.CreateImmutableBinding(const N:TBESE
 var Item:PBESENDeclarativeEnvironmentRecordHashItem;
 begin
  if assigned(GetKey(N,Hash)) then begin
-  BESENThrowTypeError('CreateImmutableBinding for "'+N+'" failed');
+  BESENThrowTypeError(self, 'CreateImmutableBinding for "'+N+'" failed');
  end;
  Item:=NewKey(N,false,Hash);
  Item^.Value.ValueType:=bvtUNDEFINED;
@@ -494,7 +502,7 @@ begin
   BESENCopyValue(Item^.Value,v);
   Item^.Initialized:=true;
  end else begin
-  BESENThrowTypeError('InitializeImmutableBinding for "'+N+'" failed');
+  BESENThrowTypeError(self, 'InitializeImmutableBinding for "'+N+'" failed');
  end;
  result:=true;
 end;
@@ -522,7 +530,7 @@ function TBESENDeclarativeEnvironmentRecord.SetIndexValue(const I,ID:integer;con
 var Item:PBESENDeclarativeEnvironmentRecordHashItem;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('SetIndexValue for "'+inttostr(I)+'" failed');
+  BESENThrowTypeError(self, 'SetIndexValue for "'+inttostr(I)+'" failed');
  end;
 begin
  if (I>=0) and (I<HashIndexes.Count) then begin
@@ -547,7 +555,7 @@ var Item:PBESENDeclarativeEnvironmentRecordHashItem;
  end;
  procedure ThrowIt;
  begin
-  BESENThrowTypeError('GetIndexValue for "'+inttostr(I)+'" failed');
+  BESENThrowTypeError(self, 'GetIndexValue for "'+inttostr(I)+'" failed');
  end;
 begin
  if (I>=0) and (I<HashIndexes.Count) then begin
