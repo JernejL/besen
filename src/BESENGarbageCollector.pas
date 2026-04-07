@@ -28,6 +28,7 @@ or contact:
       USA
 
 *******************************************************************************)
+
 unit BESENGarbageCollector;
 {$i BESEN.inc}
 
@@ -38,24 +39,38 @@ uses BESENConstants,BESENTypes,BESENBaseObject,BESENCollectorObject,
 
 type TBESENGarbageCollectorObjectList=class;
 
-     TBESENGarbageCollectorObject=class(TBESENCollectorObject)
+	 { TBESENGarbageCollectorObject }
+
+     TBESENGarbageCollectorObject=class(TBESENCollectorObject) // TBESENObject, TBESENEnvironmentRecord, TBESENLexicalEnvironment, TBESENFunctionLiteralContainer, TBESENScope, TBESENValueContainer are all extended from this.
       public
        GarbageCollectorPrevious,GarbageCollectorNext,
        GarbageCollectorRootObjectListPrevious,GarbageCollectorRootObjectListNext,
        GarbageCollectorProtectedObjectListPrevious,GarbageCollectorProtectedObjectListNext,
        GarbageCollectorObjectListPrevious,GarbageCollectorObjectListNext:TBESENGarbageCollectorObject;
+
        GarbageCollectorObjectList:TBESENGarbageCollectorObjectList;
-       GarbageCollectorDependsChildren,GarbageCollectorDependsParents:TBESENPointerSelfBalancedTree;
+
+       GarbageCollectorDependsChildren, GarbageCollectorDependsParents: TBESENPointerSelfBalancedTree;
+
        GarbageCollectorLockReferenceCounter:integer;
+
+       // OPT-1: Explicit membership flags replace unreliable pointer-heuristic Contains()
+       GarbageCollectorInRootList:boolean;
+       GarbageCollectorInProtectedList:boolean;
        constructor Create(AInstance:TObject); overload; override;
        destructor Destroy; override;
+
+       procedure FreeupLists();
+
        procedure Finalize; virtual;
        procedure Mark; virtual;
        procedure DependsOn(Parent:TBESENGarbageCollectorObject);
-       procedure GarbageCollectorWriteBarrier;
-       procedure GarbageCollectorLock;
-       procedure GarbageCollectorUnlock;
+       procedure GarbageCollectorWriteBarrier; {$ifdef caninline}inline;{$endif}
+       procedure GarbageCollectorLock;         {$ifdef caninline}inline;{$endif}
+       procedure GarbageCollectorUnlock;       {$ifdef caninline}inline;{$endif}
      end;
+
+     // todo: TBESENGarbageCollectorRootObjectList, TBESENGarbageCollectorProtectedObjectList, TBESENGarbageCollectorObjectList: merge.
 
      TBESENGarbageCollectorRootObjectList=class(TBESENBaseObject)
       public
@@ -64,7 +79,7 @@ type TBESENGarbageCollectorObjectList=class;
        destructor Destroy; override;
        procedure Clear;
        procedure ClearWithFree;
-       procedure Add(AObject:TBESENGarbageCollectorObject);
+       procedure Add(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure Remove(AObject:TBESENGarbageCollectorObject);
        function Contains(AObject:TBESENGarbageCollectorObject):boolean;
        procedure Push(AObject:TBESENGarbageCollectorObject);
@@ -78,7 +93,7 @@ type TBESENGarbageCollectorObjectList=class;
        destructor Destroy; override;
        procedure Clear;
        procedure ClearWithFree;
-       procedure Add(AObject:TBESENGarbageCollectorObject);
+       procedure Add(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure Remove(AObject:TBESENGarbageCollectorObject);
        function Contains(AObject:TBESENGarbageCollectorObject):boolean;
        procedure Push(AObject:TBESENGarbageCollectorObject);
@@ -92,7 +107,7 @@ type TBESENGarbageCollectorObjectList=class;
        destructor Destroy; override;
        procedure Clear;
        procedure ClearWithFree;
-       procedure Add(AObject:TBESENGarbageCollectorObject);
+       procedure Add(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure Remove(AObject:TBESENGarbageCollectorObject);
        function Contains(AObject:TBESENGarbageCollectorObject):boolean;
        procedure Push(AObject:TBESENGarbageCollectorObject);
@@ -109,11 +124,17 @@ type TBESENGarbageCollectorObjectList=class;
        CurrentMarkObject:TBESENGarbageCollectorObject;
        CurrentSweepObject:TBESENGarbageCollectorObject;
        CurrentContext:TObject;
+
+       // todo: unify classes, change.
        RootObjectList:TBESENGarbageCollectorRootObjectList;
        ProtectedObjectList:TBESENGarbageCollectorProtectedObjectList;
+
        WhiteObjectList:TBESENGarbageCollectorObjectList;
        GrayObjectList:TBESENGarbageCollectorObjectList;
        BlackObjectList:TBESENGarbageCollectorObjectList;
+
+
+
        IsSweeping:longbool;
        State:TBESENGarbageCollectorState;
        TriggerCounter:integer;
@@ -124,28 +145,28 @@ type TBESENGarbageCollectorObjectList=class;
        destructor Destroy; override;
        procedure Clear;
        procedure Reset;
-       procedure WhiteIt(AObject:TBESENGarbageCollectorObject);
-       procedure ForceGrayIt(AObject:TBESENGarbageCollectorObject);
-       procedure GrayIt(AObject:TBESENGarbageCollectorObject);
-       procedure BlackIt(AObject:TBESENGarbageCollectorObject);
-       procedure Protect(AObject:TBESENGarbageCollectorObject);
-       procedure Unprotect(AObject:TBESENGarbageCollectorObject);
-       procedure FinalizeObjectForSweeping(AObject:TBESENGarbageCollectorObject);
+       procedure WhiteIt(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure ForceGrayIt(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure GrayIt(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure BlackIt(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure Protect(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure Unprotect(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure FinalizeObjectForSweeping(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure GrayValue(var Value:TBESENValue);
-       procedure FinalizeValue(var Value:TBESENValue);
-       procedure Mark(AObject:TBESENGarbageCollectorObject);
+       procedure FinalizeValue(var Value:TBESENValue); {$ifdef caninline}inline;{$endif}
+       procedure Mark(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure Flip;
        procedure TriggerCollect;
        function Collect:boolean;
        procedure CollectAll;
-       procedure Use(AObject:TBESENGarbageCollectorObject);
-       procedure Add(AObject:TBESENGarbageCollectorObject);
+       procedure Use(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure Add(AObject:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure AddRoot(AObject:TBESENGarbageCollectorObject);
        procedure RemoveRoot(AObject:TBESENGarbageCollectorObject);
        procedure AddProtected(AObject:TBESENGarbageCollectorObject);
        procedure RemoveProtected(AObject:TBESENGarbageCollectorObject);
-       procedure LockObject(Obj:TBESENGarbageCollectorObject);
-       procedure UnlockObject(Obj:TBESENGarbageCollectorObject);
+       procedure LockObject(Obj:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
+       procedure UnlockObject(Obj:TBESENGarbageCollectorObject); {$ifdef caninline}inline;{$endif}
        procedure LockValue(const Value:TBESENValue);
        procedure UnlockValue(const Value:TBESENValue);
      end;
@@ -178,6 +199,8 @@ begin
  GarbageCollectorDependsChildren:=TBESENPointerSelfBalancedTree.Create;
  GarbageCollectorDependsParents:=TBESENPointerSelfBalancedTree.Create;
  GarbageCollectorLockReferenceCounter:=0;
+ GarbageCollectorInRootList:=false;      // OPT-1
+ GarbageCollectorInProtectedList:=false; // OPT-1
 end;
 
 destructor TBESENGarbageCollectorObject.Destroy;
@@ -199,31 +222,17 @@ begin
   GarbageCollectorObjectList.Remove(self);
   GarbageCollectorObjectList:=nil;
  end;
- if assigned(GarbageCollectorDependsParents) then begin
-  n:=GarbageCollectorDependsParents.FirstKey;
-  while assigned(n) do begin
-   if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren) then begin
-    TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren.Remove(self);
-   end;
-   n:=n^.NextKey;
-  end;
- end;
- if assigned(GarbageCollectorDependsChildren) then begin
-  n:=GarbageCollectorDependsChildren.FirstKey;
-  while assigned(n) do begin
-   if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents) then begin
-    TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents.Remove(self);
-   end;
-   n:=n^.NextKey;
-  end;
- end;
+
+ FreeupLists();
+
  BESENFreeAndNil(GarbageCollectorDependsChildren);
  BESENFreeAndNil(GarbageCollectorDependsParents);
  if assigned(Instance) and assigned(TBESEN(Instance).GarbageCollector) then begin
-  if assigned(TBESEN(Instance).GarbageCollector.RootObjectList) and TBESEN(Instance).GarbageCollector.RootObjectList.Contains(self) then begin
+  // OPT-1: O(1) flag check instead of O(n) list scan
+  if assigned(TBESEN(Instance).GarbageCollector.RootObjectList) and GarbageCollectorInRootList then begin
    TBESEN(Instance).GarbageCollector.RootObjectList.Remove(self);
   end;
-  if assigned(TBESEN(Instance).GarbageCollector.ProtectedObjectList) and TBESEN(Instance).GarbageCollector.ProtectedObjectList.Contains(self) then begin
+  if assigned(TBESEN(Instance).GarbageCollector.ProtectedObjectList) and GarbageCollectorInProtectedList then begin
    TBESEN(Instance).GarbageCollector.ProtectedObjectList.Remove(self);
   end;
  end;
@@ -231,27 +240,37 @@ begin
  inherited Destroy;
 end;
 
-procedure TBESENGarbageCollectorObject.Finalize;
-var n:PBESENPointerSelfBalancedTreeNode;
+procedure TBESENGarbageCollectorObject.FreeupLists();
+var
+	n: PBESENPointerSelfBalancedTreeNode;
 begin
+
  if assigned(GarbageCollectorDependsParents) then begin
-  n:=GarbageCollectorDependsParents.FirstKey;
-  while assigned(n) do begin
-   if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren) then begin
-    TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren.Remove(self);
+   n:=GarbageCollectorDependsParents.FirstKey;
+   while assigned(n) do begin
+    if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren) then begin
+     TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsChildren.Remove(self);
+    end;
+    n:=n^.NextKey;
    end;
-   n:=n^.NextKey;
   end;
- end;
- if assigned(GarbageCollectorDependsChildren) then begin
-  n:=GarbageCollectorDependsChildren.FirstKey;
-  while assigned(n) do begin
-   if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents) then begin
-    TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents.Remove(self);
+  if assigned(GarbageCollectorDependsChildren) then begin
+   n:=GarbageCollectorDependsChildren.FirstKey;
+   while assigned(n) do begin
+    if assigned(n^.Key) and assigned(TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents) then begin
+     TBESENGarbageCollectorObject(n^.Key).GarbageCollectorDependsParents.Remove(self);
+    end;
+    n:=n^.NextKey;
    end;
-   n:=n^.NextKey;
   end;
- end;
+
+end;
+
+procedure TBESENGarbageCollectorObject.Finalize;
+begin
+
+	FreeupLists();
+
 end;
 
 procedure TBESENGarbageCollectorObject.Mark;
@@ -295,7 +314,11 @@ end;
 
 procedure TBESENGarbageCollectorObject.GarbageCollectorUnlock;
 begin
- dec(GarbageCollectorLockReferenceCounter);
+ // OPT-4: Guard against underflow — a negative counter would let the GC sweep
+ // an object that the caller still holds a lock on.
+ if GarbageCollectorLockReferenceCounter>0 then begin
+  dec(GarbageCollectorLockReferenceCounter);
+ end;
 end;
 
 constructor TBESENGarbageCollectorRootObjectList.Create(AInstance:TObject);
@@ -313,11 +336,12 @@ end;
 procedure TBESENGarbageCollectorRootObjectList.Clear;
 var Item,NextItem:TBESENGarbageCollectorObject;
 begin
- Item:=First;                             
+ Item:=First;
  while assigned(Item) do begin
   NextItem:=Item.GarbageCollectorRootObjectListNext;
   Item.GarbageCollectorRootObjectListPrevious:=nil;
   Item.GarbageCollectorRootObjectListNext:=nil;
+  Item.GarbageCollectorInRootList:=false; // OPT-1
   Item:=NextItem;
  end;
  First:=nil;
@@ -334,6 +358,7 @@ end;
 
 procedure TBESENGarbageCollectorRootObjectList.Add(AObject:TBESENGarbageCollectorObject);
 begin
+ if AObject.GarbageCollectorInRootList then exit; // OPT-1: idempotent
  if assigned(Last) then begin
   Last.GarbageCollectorRootObjectListNext:=AObject;
   AObject.GarbageCollectorRootObjectListPrevious:=Last;
@@ -342,11 +367,15 @@ begin
  end else begin
   First:=AObject;
   Last:=AObject;
+  AObject.GarbageCollectorRootObjectListPrevious:=nil;
+  AObject.GarbageCollectorRootObjectListNext:=nil;
  end;
+ AObject.GarbageCollectorInRootList:=true;
 end;
 
 procedure TBESENGarbageCollectorRootObjectList.Remove(AObject:TBESENGarbageCollectorObject);
 begin
+ if not AObject.GarbageCollectorInRootList then exit; // OPT-1: fast bail
  if assigned(AObject.GarbageCollectorRootObjectListPrevious) then begin
   AObject.GarbageCollectorRootObjectListPrevious.GarbageCollectorRootObjectListNext:=AObject.GarbageCollectorRootObjectListNext;
  end else if First=AObject then begin
@@ -359,11 +388,13 @@ begin
  end;
  AObject.GarbageCollectorRootObjectListNext:=nil;
  AObject.GarbageCollectorRootObjectListPrevious:=nil;
+ AObject.GarbageCollectorInRootList:=false;
 end;
 
+// OPT-1: replaced unreliable pointer-heuristic with O(1) flag
 function TBESENGarbageCollectorRootObjectList.Contains(AObject:TBESENGarbageCollectorObject):boolean;
 begin
- result:=((First=AObject) or (Last=AObject)) or (assigned(AObject.GarbageCollectorRootObjectListNext) or assigned(AObject.GarbageCollectorRootObjectListPrevious));
+ result:=AObject.GarbageCollectorInRootList;
 end;
 
 procedure TBESENGarbageCollectorRootObjectList.Push(AObject:TBESENGarbageCollectorObject);
@@ -399,6 +430,7 @@ begin
   NextItem:=Item.GarbageCollectorProtectedObjectListNext;
   Item.GarbageCollectorProtectedObjectListPrevious:=nil;
   Item.GarbageCollectorProtectedObjectListNext:=nil;
+  Item.GarbageCollectorInProtectedList:=false; // OPT-1
   Item:=NextItem;
  end;
  First:=nil;
@@ -415,6 +447,7 @@ end;
 
 procedure TBESENGarbageCollectorProtectedObjectList.Add(AObject:TBESENGarbageCollectorObject);
 begin
+ if AObject.GarbageCollectorInProtectedList then exit; // OPT-1: idempotent
  if assigned(Last) then begin
   Last.GarbageCollectorProtectedObjectListNext:=AObject;
   AObject.GarbageCollectorProtectedObjectListPrevious:=Last;
@@ -423,11 +456,15 @@ begin
  end else begin
   First:=AObject;
   Last:=AObject;
+  AObject.GarbageCollectorProtectedObjectListPrevious:=nil;
+  AObject.GarbageCollectorProtectedObjectListNext:=nil;
  end;
+ AObject.GarbageCollectorInProtectedList:=true;
 end;
 
 procedure TBESENGarbageCollectorProtectedObjectList.Remove(AObject:TBESENGarbageCollectorObject);
 begin
+ if not AObject.GarbageCollectorInProtectedList then exit; // OPT-1: fast bail
  if assigned(AObject.GarbageCollectorProtectedObjectListPrevious) then begin
   AObject.GarbageCollectorProtectedObjectListPrevious.GarbageCollectorProtectedObjectListNext:=AObject.GarbageCollectorProtectedObjectListNext;
  end else if First=AObject then begin
@@ -440,11 +477,13 @@ begin
  end;
  AObject.GarbageCollectorProtectedObjectListNext:=nil;
  AObject.GarbageCollectorProtectedObjectListPrevious:=nil;
+ AObject.GarbageCollectorInProtectedList:=false;
 end;
 
+// OPT-1: replaced unreliable pointer-heuristic with O(1) flag
 function TBESENGarbageCollectorProtectedObjectList.Contains(AObject:TBESENGarbageCollectorObject):boolean;
 begin
- result:=((First=AObject) or (Last=AObject)) or (assigned(AObject.GarbageCollectorProtectedObjectListNext) or assigned(AObject.GarbageCollectorProtectedObjectListPrevious));
+ result:=AObject.GarbageCollectorInProtectedList;
 end;
 
 procedure TBESENGarbageCollectorProtectedObjectList.Push(AObject:TBESENGarbageCollectorObject);
@@ -618,7 +657,6 @@ begin
  if assigned(AObject) and not WhiteObjectList.Contains(AObject) then begin
   if assigned(AObject.GarbageCollectorObjectList) then begin
    AObject.GarbageCollectorObjectList.Remove(AObject);
-   AObject.GarbageCollectorObjectList:=nil;
   end;
   WhiteObjectList.Push(AObject);
  end;
@@ -629,18 +667,22 @@ begin
  if assigned(AObject) and not GrayObjectList.Contains(AObject) then begin
   if assigned(AObject.GarbageCollectorObjectList) then begin
    AObject.GarbageCollectorObjectList.Remove(AObject);
-   AObject.GarbageCollectorObjectList:=nil;
   end;
   GrayObjectList.Push(AObject);
  end;
 end;
 
+// OPT-5: GrayIt is on the write-barrier hot path. Original called Contains() twice
+// (once for Gray, once for Black). One pointer comparison replaces both.
 procedure TBESENGarbageCollector.GrayIt(AObject:TBESENGarbageCollectorObject);
 begin
- if assigned(AObject) and not (GrayObjectList.Contains(AObject) or BlackObjectList.Contains(AObject)) then begin
+ if assigned(AObject) then begin
+  if (AObject.GarbageCollectorObjectList=GrayObjectList) or
+     (AObject.GarbageCollectorObjectList=BlackObjectList) then begin
+   exit; // already grey or black
+  end;
   if assigned(AObject.GarbageCollectorObjectList) then begin
    AObject.GarbageCollectorObjectList.Remove(AObject);
-   AObject.GarbageCollectorObjectList:=nil;
   end;
   GrayObjectList.Push(AObject);
  end;
@@ -651,7 +693,6 @@ begin
  if assigned(AObject) and not BlackObjectList.Contains(AObject) then begin
   if assigned(AObject.GarbageCollectorObjectList) then begin
    AObject.GarbageCollectorObjectList.Remove(AObject);
-   AObject.GarbageCollectorObjectList:=nil;
   end;
   BlackObjectList.Push(AObject);
  end;
@@ -842,9 +883,15 @@ begin
     end;
    end;
    bgcsSWEEPWHITES:begin
+    // OPT-7: Two explicit passes.  First, rescue locked/protected whites;
+    // then finalize+free everything that remains.  CurrentSweepObject is
+    // explicitly reset before each pass so re-entry is always correct.
+    CurrentSweepObject:=WhiteObjectList.First;
     while assigned(CurrentSweepObject) do begin
      NextObject:=CurrentSweepObject.GarbageCollectorObjectListNext;
-     if (CurrentSweepObject.GarbageCollectorLockReferenceCounter>0) or ProtectedObjectList.Contains(CurrentSweepObject) then begin
+     // OPT-1: ProtectedObjectList.Contains is now O(1) via flag
+     if (CurrentSweepObject.GarbageCollectorLockReferenceCounter>0) or
+        ProtectedObjectList.Contains(CurrentSweepObject) then begin
       GrayIt(CurrentSweepObject);
      end;
      CurrentSweepObject:=NextObject;
@@ -852,17 +899,16 @@ begin
     if assigned(GrayObjectList.First) then begin
      State:=bgcsMARKGRAYS;
     end else begin
+     // Finalize then free every remaining white object
      CurrentSweepObject:=WhiteObjectList.First;
-     if assigned(CurrentSweepObject) then begin
-      while assigned(CurrentSweepObject) do begin
-       FinalizeObjectForSweeping(CurrentSweepObject);
-       CurrentSweepObject:=CurrentSweepObject.GarbageCollectorObjectListNext;
-      end;
-      while assigned(WhiteObjectList.First) do begin
-       IsSweeping:=true;
-       WhiteObjectList.First.Free;
-       IsSweeping:=false;
-      end;
+     while assigned(CurrentSweepObject) do begin
+      FinalizeObjectForSweeping(CurrentSweepObject);
+      CurrentSweepObject:=CurrentSweepObject.GarbageCollectorObjectListNext;
+     end;
+     while assigned(WhiteObjectList.First) do begin
+      IsSweeping:=true;
+      WhiteObjectList.First.Free;
+      IsSweeping:=false;
      end;
      State:=bgcsDONE;
     end;
@@ -879,6 +925,7 @@ end;
 
 procedure TBESENGarbageCollector.CollectAll;
 begin
+ // should it not be internal and all external stuff call TriggerCollect?
  while Collect do begin
  end;
 end;
