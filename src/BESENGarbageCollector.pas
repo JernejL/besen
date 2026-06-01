@@ -37,6 +37,12 @@ interface
 uses BESENConstants,BESENTypes,BESENBaseObject,BESENCollectorObject,
      BESENPointerSelfBalancedTree,BESENValue;
 
+{$ifdef besen_arena_allocator}
+	
+	{$i BESENGarbageCollectorArena.inc}
+	
+{$else}
+
 type TBESENGarbageCollectorObjectList=class;
 
 	 { TBESENGarbageCollectorObject }
@@ -1034,5 +1040,7 @@ begin
   end;
  end;
 end;
+
+{$endif}
 
 end.

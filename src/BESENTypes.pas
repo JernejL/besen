@@ -33,7 +33,7 @@ unit BESENTypes;
 
 interface
 
-uses BESENConstants;
+uses BESENConstants, sysutils;
 
 type{$ifdef BESENSingleStringType}
      TBESENCHAR=widechar;
@@ -116,7 +116,11 @@ type{$ifdef BESENSingleStringType}
      TBESENINT32=longint;
 
      PBESENUINT32=^TBESENUINT32;
-     TBESENUINT32=longword;
+     {$ifdef cpuamd64}
+    	TBESENUINT32=longword; // do not change. has to be longword or all jit breaks.
+     {$else}
+     	TBESENUINT32=longword;
+     {$endif}
 
      PBESENINT64=^TBESENINT64;
      TBESENINT64=int64;
@@ -139,6 +143,7 @@ type{$ifdef BESENSingleStringType}
      PBESENINT32Array=^TBESENINT32Array;
      TBESENINT32Array=array[0..($7fffffff div sizeof(TBESENUINT32))-1] of TBESENINT32;
 
+
      PBESENINT64Array=^TBESENINT64Array;
      TBESENINT64Array=array[0..($7fffffff div sizeof(TBESENINT64))-1] of TBESENINT64;
 
@@ -154,9 +159,17 @@ type{$ifdef BESENSingleStringType}
 
      TBESENRadixChars=array[0..35] of TBESENCHAR;
 
+	 { TBESENLocation }
+
      TBESENLocation=record
-      LineNumber:integer;
-      Filename:integer;
+      iLineNumber:integer;
+      iColumnNumber: integer;
+      iFilename:integer;
+      function hasinfo(): boolean;
+      procedure SetInfo(const line_number, Column_number, File_name: integer);
+      procedure copy(const from: TBESENLocation);
+      function toString(const besenstrings: array of tbesenstring): tbesenstring; // was tbesenansistring
+      class operator Initialize (var Dest: TBESENLocation);
      end;
 
      PBESENDoubleHiLo=^TBESENDoubleHiLo;
@@ -197,5 +210,58 @@ type{$ifdef BESENSingleStringType}
 {$endif}
      
 implementation
+
+{ TBESENLocation }
+
+function TBESENLocation.hasinfo(): boolean;
+begin
+
+    result:= iLineNumber <> -1;
+
+end;
+
+procedure TBESENLocation.SetInfo(const line_number, Column_number, File_name: integer);
+begin
+
+  iLineNumber:=		line_number;
+  iColumnNumber:=    Column_number;
+  iFilename:=		file_name;
+
+  // ???OutputDebugStringa(pchar('SetLineLocation:' + TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name));
+
+end;
+
+procedure TBESENLocation.copy(const from: TBESENLocation);
+begin
+
+  iLineNumber:=		from.iLineNumber;
+  iColumnNumber:=	from.iColumnNumber;
+  iFilename:=		from.iFilename; // todo: check if different from
+
+end;
+
+function TBESENLocation.toString(const besenstrings: array of tbesenstring): tbesenstring;
+var
+	tempfile: Tbesenstring;
+begin
+
+	if (iFilename>=0) and (iFilename < Length(besenstrings)) then begin
+		tempfile:= besenstrings[iFilename];
+	end else begin
+		tempfile:='<Unknown>';
+	end;
+
+    result:= tempfile + ':' + IntToStr(iLineNumber) + '/' + inttostr(iColumnNumber);
+
+end;
+
+class operator TBESENLocation.Initialize(var Dest: TBESENLocation);
+begin
+
+    dest.iLineNumber:= 0;
+    dest.iColumnNumber:= 0;
+    dest.iFilename:= -1;
+
+end;
 
 end.

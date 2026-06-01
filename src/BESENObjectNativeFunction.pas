@@ -87,11 +87,15 @@ end;
 
 procedure TBESENObjectNativeFunction.Call(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue);
 begin
- if assigned(Native) then begin
-  Native(ThisArgument,Arguments,CountArguments,AResult);
- end else begin
-  AResult.ValueType:=bvtUNDEFINED;
- end;
+
+	if assigned(Native) then begin
+
+		Native(ThisArgument, Arguments, CountArguments, AResult);// all functions are called as TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:longint;var ResultValue:TBESENValue) of object;
+
+	end else begin
+		AResult.ValueType:=bvtUNDEFINED;
+	end;
+
 end;
 
 function TBESENObjectNativeFunction.HasCall:TBESENBoolean;

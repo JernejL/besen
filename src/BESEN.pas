@@ -80,7 +80,7 @@ unit BESEN;
 
 interface
 
-uses SysUtils,Classes,Math,SyncObjs,TypInfo,Variants,BESENVersionConstants,
+uses SysUtils, Classes,Math,SyncObjs,TypInfo,Variants,BESENVersionConstants,
      BESENConstants,BESENTypes,BESENCharset,BESENStringUtils,BESENOpcodes,
      BESENNativeCodeMemoryManager,BESENValueContainer,BESENObject,
      BESENSelfBalancedTree,BESENGlobals,BESENErrors,
@@ -124,9 +124,11 @@ type TBESEN=class;
 
      TBESENRegExpDebugOutputHook=procedure(const Instance:TBESEN;const Data:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};NewLine:TBESENBOOLEAN) of object;
 
+	 { TBESEN }
+
      TBESEN=class
-      private
-             FFilenames: array of TBESENANSISTRING;
+     private
+
       public
        CriticalSection:TCriticalSection;
        Collector:TBESENCollector;
@@ -149,18 +151,35 @@ type TBESEN=class;
        RecursionLimit:integer;
        SecurityDomain:pointer;
        TransitSecurityDomain:TBESENTransitSecurityDomain;
-       UseSecurity:TBESENBoolean;
-       CodeLineInfo:TBESENBoolean;
-       CodeTracable:TBESENBoolean;
+       UseSecurity:TBESENBoolean; // does some security domain checks on classes
+       CodeLineInfo:TBESENBoolean; // tracks line numbers in codeinfo (genlocation call)
+
+       CodeTracable:TBESENBoolean; // uses TBESENCodeContext.OpTRACECALL TBESENCodeContext.OpTRACENEW instead of TBESENCodeContext.OpNEW and TBESENCodeContext.OpTRACECALL instead of TBESENCodeContext.OpCALL
+       TraceHook:TBESENTraceHook;
+       GeneratedOpcodes: double;
+       //ExecutedOpcodes: double;
+
        RegExpDebug:TBESENUINT32;
        RegExpTimeOutSteps:TBESENINT64;
-       TraceHook:TBESENTraceHook;
        PeriodicHook:TBESENPeriodicHook;
        RegExpDebugOutputHook:TBESENRegExpDebugOutputHook;
-       LineNumber:TBESENUINT32;
-       ColumnNumber:TBESENUINT32;
-       CurrentLine: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
-       CurrentToken: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+
+       // codelocation.filename = CurrentFile
+
+       FFilenames: array of TBESENANSISTRING;
+
+       // keeping track of file instances and line info
+
+       LineNumber: TBESENUINT32;	// JIT updates directly.
+       ColumnNumber: TBESENUINT32;	// JIT updates directly.
+       CurrentFile: Integer;        // JIT updates directly.
+
+       // FilenameSet // why was this double?
+
+       // for parser errors:
+       CurrentParserLine: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif}; // for some reason WHOLE LINE string
+       CurrentParserToken: {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+
        RandomGenerator:TBESENRandomGenerator;
        RegExpMaxStatesHoldInMemory:integer;
        JITLoopCompileThreshold:longword;
@@ -205,7 +224,6 @@ type TBESEN=class;
        GlobalLexicalEnvironment:TBESENLexicalEnvironment;
        ObjectNumberConstructorValue:TBESENValue;
        ObjectStringConstructorValue:TBESENValue;
-       FilenameSet,CurrentFile: Integer;
        constructor Create(ACompatibility:longword=0); overload;
        destructor Destroy; override;
        procedure Lock;
@@ -216,10 +234,18 @@ type TBESEN=class;
        procedure UnlockValue(const Value:TBESENValue);
        function GetRandom:longword;
 
-       procedure SetFilename(AFilename: TBESENANSISTRING);
+       procedure SetLineLocation(const location: TBESENLocation; source_call: widestring);
+       procedure codelocation_SetInfo(const line_number, column_number, current_file: integer; source_call: widestring);
+       function codelocation_toString(const inFilenames: array of TBESENANSISTRING): TBESENString;
+
+       procedure SetFilename(AFilename: TBESENANSISTRING; source_call: widestring );
        function GetFilename: TBESENANSISTRING;
 
+       procedure CodeTrackingChanged(source_call: widestring);
+
        procedure RegisterNativeObject(const AName:TBESENString;const AClass:TBESENNativeObjectClass;const Attributes:TBESENObjectPropertyDescriptorAttributes=[bopaWRITABLE,bopaCONFIGURABLE]);
+       // TODO: unregister native object.. garbage collector RemoveRoot etc..
+
        procedure FunctionCall(Obj:TBESENObject;const ThisArgument:TBESENValue;const Arguments:array of TBESENValue;var AResult:TBESENValue);
        procedure FunctionConstruct(Obj:TBESENObject;const ThisArgument:TBESENValue;const Arguments:array of TBESENValue;var AResult:TBESENValue);
        function MakeError(const Name:TBESENString;var ConstructorObject:TBESENObjectErrorConstructor;const ProtoProto:TBESENObject):TBESENObjectErrorPrototype;
@@ -282,6 +308,9 @@ constructor TBESEN.Create(ACompatibility:longword=0);
 var v:TBESENValue;
 begin
  inherited Create;
+
+ GeneratedOpcodes:= 0.0;
+
  InlineCacheEnabled:=true;
  ContextFirst:=nil;
  ContextLast:=nil;
@@ -290,6 +319,13 @@ begin
  CriticalSection:=TCriticalSection.Create;
  Collector:=TBESENCollector.Create(self);
  GarbageCollector:=TBESENGarbageCollector.Create(self);
+
+ {$ifdef besen_arena_allocator}
+  // OPT-C: activate the slab arena so all subsequent GC object allocations
+   // use bump-pointer allocation instead of the system heap.
+  BESENCurrentGCArena:=@GarbageCollector.Arena;
+ {$endif}
+
  KeyIDManager:=TBESENKeyIDManager.Create(self);
  ObjectStructureIDManager:=TBESENObjectStructureIDManager.Create(self);
  Compiler:=TBESENCompiler.Create(self);
@@ -304,15 +340,19 @@ begin
  TransitSecurityDomain:=nil;
  UseSecurity:=false;
  CodeLineInfo:=true;
- CodeTracable:=false;
+ //CodeTracable:=false; // see TraceHook
  RegExpDebug:=0;
  RegExpTimeOutSteps:=0;
  TraceHook:=nil;
  PeriodicHook:=nil;
  RegExpDebugOutputHook:=nil;
- LineNumber:=0;
- CurrentFile:=-1;
- FilenameSet:=-1;
+
+ codelocation_SetInfo(0, 0, -1, 'init');
+
+ // LineNumber:=0;
+ //CurrentFile:=-1;
+ CurrentFile:=-1; // was FilenameSet
+
  RandomGenerator:=TBESENRandomGenerator.Create(self);
  RegExpMaxStatesHoldInMemory:=breMAXSTATESHOLDINMEMORY;
  JITLoopCompileThreshold:=BESEN_JIT_LOOPCOMPILETHRESHOLD;
@@ -564,6 +604,12 @@ begin
 
  EvalCache.Free;
 
+ {$ifdef besen_arena_allocator}
+ // OPT-C: deactivate arena before tearing down the GC, so any allocations
+ // that happen during teardown fall through to the system heap.
+ BESENCurrentGCArena:=nil;
+ {$endif}
+
  GarbageCollector.Free;
 
  ProgramNodes.Free;
@@ -626,19 +672,71 @@ begin
  result:=RandomGenerator.Get;
 end;
 
-procedure TBESEN.SetFilename(AFilename: TBESENANSISTRING);
+procedure TBESEN.SetLineLocation(const location: TBESENLocation; source_call: widestring);
+begin
+
+    // OutputDebugStringa(pchar('SetLineLocation:' + TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name));
+
+    if ( (LineNumber <> location.iLineNumber) or (ColumnNumber <> location.iColumnNumber) or (CurrentFile <>  location.iFilename) ) then begin
+
+		LineNumber:=	location.iLineNumber;
+		ColumnNumber:=	location.iColumnNumber;
+		CurrentFile:=  location.iFilename;
+
+	    CodeTrackingChanged(source_call);
+
+	end;
+
+end;
+
+
+procedure TBESEN.codelocation_SetInfo(const line_number, column_number, current_file: integer; source_call: widestring);
+begin
+
+	if ( (LineNumber <> line_number) or (ColumnNumber <> column_number) or (CurrentFile <>  current_file) ) then begin
+
+		LineNumber:=	line_number;
+		ColumnNumber:=	column_number;
+		CurrentFile:=   current_file;
+
+		CodeTrackingChanged(source_call);
+
+	end;
+
+end;
+
+function TBESEN.codelocation_toString(const inFilenames: array of TBESENANSISTRING): TBESENString;
+var
+	tempfile: Tbesenstring;
+begin
+
+	// was: CurrentFileset
+
+	if (CurrentFile>=0) and (CurrentFile < Length(inFilenames)) then begin
+		tempfile:= inFilenames[CurrentFile];
+	end else begin
+		tempfile:='<Unknown>';
+	end;
+
+    result:= tempfile + ':' + IntToStr(LineNumber) + ' COL ' + inttostr(ColumnNumber);
+
+end;
+
+procedure TBESEN.SetFilename(AFilename: TBESENANSISTRING; source_call: widestring);
 var i:Integer;
 begin
  for i:=0 to Length(FFilenames)-1 do
  if lowercase(FFilenames[i]) = lowercase(AFilename) then
  begin
-  FilenameSet:=i;
+  CurrentFile:=i; // was FilenameSet
   Exit;
  end;
  i:=Length(FFilenames);
  Setlength(FFilenames, i+1);
  FFilenames[i]:=AFilename;
- FilenameSet:=i;
+ CurrentFile:=i;
+
+ CodeTrackingChanged(source_call);
 end;
 
 function TBESEN.GetFilename: TBESENANSISTRING;
@@ -650,24 +748,34 @@ begin
  end;
 end;
 
-procedure TBESEN.RegisterNativeObject(const AName:TBESENString;const AClass:TBESENNativeObjectClass;const Attributes:TBESENObjectPropertyDescriptorAttributes=[bopaWRITABLE,bopaCONFIGURABLE]);
-var v:TBESENValue;
-	nuovo: TBESENNativeObject;
+procedure TBESEN.CodeTrackingChanged(source_call: widestring);
 begin
- v.ValueType:=bvtOBJECT;
 
- //TBESENObject(v.Obj):=AClass.Create(self,ObjectPrototype);
+	// OutputDebugStringW( pwidechar(  widestring( 'tracking: ' + codelocation_toString(FFilenames)  + ', source_call: ' + source_call) ));
 
- nuovo := AClass.Create(self,ObjectPrototype);
- TBESENObject(v.Obj):= nuovo;
+end;
 
-//219 Invalid typecast
-//Thrown when an invalid typecast is attempted on a class using the as operator.
-//This error is also thrown when an object or class is typecast to an invalid class or object and a virtual method of that class or object is called.
-//This last error is only detected if the -CR compiler option is used.
+procedure TBESEN.RegisterNativeObject(const AName:TBESENString;const AClass:TBESENNativeObjectClass;const Attributes:TBESENObjectPropertyDescriptorAttributes=[bopaWRITABLE,bopaCONFIGURABLE]);
+var
+	protovalue: TBESENValue;
+	protonativeinstance: TBESENNativeObject;
+begin
 
- GarbageCollector.AddRoot(TBESENObject(v.Obj));
- ObjectGlobal.OverwriteData(AName,v,Attributes);
+	protovalue.ValueType:= bvtOBJECT;
+
+	//TBESENObject(protovalue.Obj):=AClass.Create(self,ObjectPrototype);
+
+	protonativeinstance := AClass.Create(self,ObjectPrototype);
+	TBESENObject(protovalue.Obj):= protonativeinstance;
+
+	// 219 Invalid typecast
+	// Thrown when an invalid typecast is attempted on a class using the as operator.
+	// This error is also thrown when an object or class is typecast to an invalid class or object and a virtual method of that class or object is called.
+	// This last error is only detected if the -CR compiler option is used.
+
+	GarbageCollector.AddRoot(TBESENObject(protovalue.Obj));
+	ObjectGlobal.OverwriteData(AName,protovalue,Attributes); // global prototype o
+
 end;
 
 function TBESEN.MakeError(const Name:TBESENString;var ConstructorObject:TBESENObjectErrorConstructor;const ProtoProto:TBESENObject):TBESENObjectErrorPrototype;

@@ -37,7 +37,7 @@ uses {$ifdef windows}Windows,MMSystem,{$endif}{$ifdef unix}dl,BaseUnix,Unix,
      UnixType,{$endif}SysUtils,Classes,Math,BESENConstants,BESENTypes,BESENValue,
      BESENBaseObject,BESENCollectorObject,BESENObject,BESENLexicalEnvironment,
      BESENStringList,BESENContext,BESENCode,
-     BESENObjectPropertyDescriptor;
+     BESENObjectPropertyDescriptor, BESENNativeObject;
 
 type TBESENCodeContextBlockType=(bccbtENUM,bccbtWITH,bccbtCATCH,bccbtCATCH2,bccbtFINALLY,bccbtFINALLY2);
 
@@ -69,7 +69,7 @@ type TBESENCodeContextBlockType=(bccbtENUM,bccbtWITH,bccbtCATCH,bccbtCATCH2,bccb
 
      TBESENCodeContextGetRefProc=procedure(const ARef:TBESENValue;var AResult:TBESENValue) of object;
 
-     TBESENCodeContextGetRefProcs=array[byte] of TBESENCodeContextGetRefProc;
+     TBESENCodeContextGetRefProcs=array[byte] of TBESENCodeContextGetRefProc; // lookup table
 
      TBESENCodeContextPutRefProc=procedure(const ARef,AValue:TBESENValue) of object;
 
@@ -81,12 +81,16 @@ type TBESENCodeContextBlockType=(bccbtENUM,bccbtWITH,bccbtCATCH,bccbtCATCH2,bccb
       private
        LexicalEnvironment:TBESENLexicalEnvironment;
        OldLexicalEnvironment:TBESENLexicalEnvironment;
-       GetRefProcs:TBESENCodeContextGetRefProcs;
+       GetRefProcs:TBESENCodeContextGetRefProcs; // brbvtUNDEFINED=0;, brbvtBOOLEAN=1;, brbvtNUMBER=2;, brbvtSTRING=3;, brbvtOBJECT=4;, brbvtENVREC=5;
        PutRefProcs:TBESENCodeContextPutRefProcs;
-       LookupNames:PBESENStringArray;
        procedure OpSTOP(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+
        procedure OpNEW(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+       procedure OpTRACENEW(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+
        procedure OpCALL(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+       procedure OpTRACECALL(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
+
        procedure OpEND(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpVREF(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpLREF(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -234,8 +238,6 @@ type TBESENCodeContextBlockType=(bccbtENUM,bccbtWITH,bccbtCATCH,bccbtCATCH2,bccb
        procedure OpSETCNUM(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpSETCSTR(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpSETCOBJ(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
-       procedure OpTRACENEW(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
-       procedure OpTRACECALL(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpLTNUMCONST(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpGTNUMCONST(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
        procedure OpLENUMCONST(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -265,6 +267,9 @@ type TBESENCodeContextBlockType=(bccbtENUM,bccbtWITH,bccbtCATCH,bccbtCATCH2,bccb
        function ExecuteCode:TBESENBoolean;
        procedure ExecuteTryBlockLevel;
       public
+       LookupNames:PBESENStringArray;
+       LookupMaxIndex: integer; // this does not seem to be used at all.
+
        NextCodeContext:TBESENCodeContext;
        Code:TBESENCode;
        Context:TBESENContext;
@@ -299,8 +304,22 @@ implementation
 
 uses BESEN,BESENEnvironmentRecord,BESENHashUtils,BESENUtils,BESENArrayUtils,
      BESENObjectEnvironmentRecord,BESENDeclarativeEnvironmentRecord,BESENStringUtils,
-     BESENGarbageCollector,BESENASTNodes,BESENNumberUtils,BESENOpcodes,BESENErrors,
-     BESENObjectDeclaredFunction{$ifdef HasJIT}{$ifdef cpu386},BESENCodeJITx86{$endif}{$ifdef cpuamd64},BESENCodeJITx64{$endif}{$endif};
+     BESENGarbageCollector, BESENASTNodes,BESENNumberUtils,BESENOpcodes,BESENErrors,
+     BESENObjectDeclaredFunction
+     {$ifdef HasJIT}
+       {$ifdef cpu386},
+               BESENCodeJITx86
+       {$endif}
+       {$ifdef cpuamd64},
+
+     {$ifdef windows}
+     	BESENCodeJITx64windows
+     {$else}
+    	BESENCodeJITx64
+     {$endif}
+
+       {$endif}
+     {$endif};
 
 function sar(Value,Shift:integer):integer;
 {$ifdef PurePascal}{$ifdef caninline}inline;{$endif}
@@ -383,6 +402,9 @@ begin
  Descriptor2:=BESENUndefinedPropertyDescriptor;
 
  CallThisArg:=BESENUndefinedValue;
+
+ initialize(GetRefProcs);
+ initialize(PutRefProcs);
 
  GetRefProcs[brbvtUNDEFINED]:=GetUndefined;
  GetRefProcs[brbvtBOOLEAN]:=GetPrimitive;
@@ -556,6 +578,10 @@ end;
 
 procedure TBESENCodeContext.GetUndefined(const ARef:TBESENValue;var AResult:TBESENValue);
 begin
+
+  // TODO: add register values, operands and variables?
+  //GetRefProcs[RegisterValues[Operands^[1]].ReferenceBase.ValueType](RegisterValues[Operands^[1]],RegisterValues[Operands^[0]]);
+
  BESENThrowNotDefined(self, ARef);
 end;
 
@@ -848,61 +874,15 @@ begin
 end;
 
 procedure TBESENCodeContext.OpNEW(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
-var Counter,CountArguments:integer;
-    ConstructorValue:PBESENValue;
-    OldIsStrict:boolean;
 begin
- OldIsStrict:=TBESEN(Instance).IsStrict;
- try
-  ConstructorValue:=@RegisterValues[Operands^[1]];
-  CountArguments:=Operands^[2];
-  for Counter:=0 to CountArguments-1 do begin
-   ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+3]];
-  end;
-  if ConstructorValue^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAConstructorObject(self);
-  end else if not TBESENObject(ConstructorValue^.Obj).HasConstruct then begin
-   BESENThrowTypeErrorObjectHasNoConstruct(self);
-  end;
-  TBESEN(Instance).GarbageCollector.TriggerCollect;
-  TBESEN(Instance).ObjectConstruct(TBESENObject(ConstructorValue^.Obj),BESENUndefinedValue,@ParamArgs[0],CountArguments,RegisterValues[Operands^[0]]);
- finally
-  TBESEN(Instance).IsStrict:=OldIsStrict;
- end;
+
+	OpTRACENEW(Operands);
+
 end;
 
 procedure TBESENCodeContext.OpCALL(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
-var Counter,CountArguments:integer;
-    Ref,Func:PBESENValue;
-    OldIsStrict,DirectCall:boolean;
 begin
- OldIsStrict:=TBESEN(Instance).IsStrict;
- try
-  Ref:=@RegisterValues[Operands^[1]];
-  Func:=@RegisterValues[Operands^[2]];
-  CountArguments:=Operands^[3];
-  for Counter:=0 to CountArguments-1 do begin
-   ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+4]];
-  end;
-  if Func^.ValueType<>bvtOBJECT then begin
-   BESENThrowTypeErrorNotAFunction(self, RegisterValues[Operands^[1]].STR);
-  end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
-   BESENThrowTypeErrorNotCallable(self);
-  end;
-  if Ref^.ValueType=bvtREFERENCE then begin
-   BESENRefBaseValueToCallThisArgValueProcs[Ref^.ReferenceBase.ValueType](CallThisArg,Ref^.ReferenceBase);
-  end else begin
-   CallThisArg.ValueType:=bvtUNDEFINED;
-  end;
-  if Func^.Obj=TBESEN(Instance).ObjectGlobalEval then begin
-   DirectCall:=((Ref^.ValueType=bvtREFERENCE) and (Ref^.ReferenceBase.ValueType=brbvtENVREC)) and TBESENEnvironmentRecord(Ref^.ReferenceBase.EnvRec).HasBindingEx('eval',Descriptor);
-   TBESEN(Instance).GlobalEval(Context,CallThisArg,@ParamArgs[0],CountArguments,DirectCall,RegisterValues[Operands^[0]]);
-  end else begin
-   TBESEN(Instance).ObjectCall(TBESENObject(Func^.Obj),CallThisArg,@ParamArgs[0],CountArguments,RegisterValues[Operands^[0]]);
-  end;
- finally
-  TBESEN(Instance).IsStrict:=OldIsStrict;
- end;
+	OpTRACECALL(Operands); // duplicate function, implemented there.
 end;
 
 procedure TBESENCodeContext.OpEND(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -1025,7 +1005,7 @@ begin
  end;
 
  // Normal lookup
- Operands^[4]:=-1;
+ Operands^[4]:=-1; // JIT bakes a static pointer to ByteCode[PC+1] at compile time
  vp^.ReferenceIndex:=-1;
  vp^.ReferenceID:=-1;
  vp^.Str:=Code.Variables[Operands^[1]].Name;
@@ -1400,79 +1380,175 @@ begin
  PutValue(RegisterValues[Operands^[0]],RegisterValues[Operands^[1]]);
 end;
 
+{
+
+AST part:
+
+bntDELETEEXPRESSION:begin
+ if DestRegNr<0 then begin
+  DestRegNr:=CodeGeneratorContext.AllocateRegister;
+ end;
+ r1:=-1;
+ Visit(TBESENASTNodeDeleteExpression(ToVisit).SubExpression,r1,true);
+ if r1<0 then begin
+  BESENThrowCodeGeneratorInvalidRegister;
+ end;
+ if TBESENASTNodeDeleteExpression(ToVisit).SubExpression.NodeType=bntIDENTIFIER then begin
+  CodeGeneratorContext.VariableSetFlags(TBESENASTNodeIdentifier(TBESENASTNodeDeleteExpression(ToVisit).SubExpression).Name,false,false);
+ end;
+ Code.GenOp(bopDELETE,DestRegNr,r1);
+ CodeGeneratorContext.DeallocateRegister(r1);
+ CodeGeneratorContext.Registers[DestRegNr].IsWhat:=bcgtBOOLEAN;
+ AssignSetType(TBESENASTNodeDeleteExpression(ToVisit).SubExpression,bvtUNDEFINED);
+end;
+}
+
 procedure TBESENCodeContext.OpDELETE(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
-var up,vp:PBESENValue;
-    bv:TBESENBoolean;
+var
+	Source,Destination:PBESENValue;
+	bv:TBESENBoolean;
+
+	Reference: TBESENReferenceBaseValue;
+	V:TBESENValue;
+
+	DeletedObj:TBESENObject;	// ADD: the object being deleted from
+	DeletedVal:TBESENValue;	// ADD: resolved value for bvtLOCAL case
+
+	// ADD: resolves the base object and calls OnDeleteOp if it is a TBESENNativeObject
+	procedure NotifyNativeObjectDelete(Obj:TBESENObject);
+	begin
+
+	if Assigned(Obj) and (Obj is TBESENNativeObject) then
+		TBESENNativeObject(Obj).OnDeleteOperator();
+
+	end;
+
 begin
- up:=@RegisterValues[Operands^[1]];
- vp:=@RegisterValues[Operands^[0]];
- case up^.ValueType of
-  bvtREFERENCE:begin
-   case up^.ReferenceBase.ValueType of
-    brbvtBOOLEAN,brbvtNUMBER,brbvtSTRING:begin
-     BESENReferenceBaseValueToValue(up^.ReferenceBase,Temp);
-     if up^.ReferenceID<0 then begin
-      if up^.ReferenceIndex<0 then begin
-       bv:=TBESEN(Instance).ToObj(Temp).DeleteEx(up^.Str,up^.ReferenceIsStrict,Descriptor,up^.ReferenceHash);
-      end else begin
-       bv:=TBESEN(Instance).ToObj(Temp).DeleteArrayIndex(up^.ReferenceIndex,up^.ReferenceIsStrict);
-      end;
-     end else begin
-      bv:=TBESEN(Instance).ToObj(Temp).DeleteIndex(up^.ReferenceIndex,up^.ReferenceID,up^.ReferenceIsStrict);
-     end;
-     vp^.ValueType:=bvtBOOLEAN;
-     vp^.Bool:=bv;
-    end;
-    brbvtOBJECT:begin
-     if up^.ReferenceID<0 then begin
-      if up^.ReferenceIndex<0 then begin
-       bv:=TBESENObject(up^.ReferenceBase.Obj).DeleteEx(up^.Str,up^.ReferenceIsStrict,Descriptor,up^.ReferenceHash);
-      end else begin
-       bv:=TBESENObject(up^.ReferenceBase.Obj).DeleteArrayIndex(up^.ReferenceIndex,up^.ReferenceIsStrict);
-      end;
-     end else begin
-      bv:=TBESENObject(up^.ReferenceBase.Obj).DeleteIndex(up^.ReferenceIndex,up^.ReferenceID,up^.ReferenceIsStrict);
-     end;
-     vp^.ValueType:=bvtBOOLEAN;
-     vp^.Bool:=bv;
-    end;
-    brbvtENVREC:begin
-     if up^.ReferenceIsStrict then begin
-      BESENThrowSyntaxError(self, '"delete" not allowed here');
-     end;
-     if up^.ReferenceID<0 then begin
-      if up^.ReferenceIndex<0 then begin
-       bv:=TBESENEnvironmentRecord(up^.ReferenceBase.EnvRec).DeleteBindingEx(up^.Str,Descriptor,up^.ReferenceHash);
-      end else begin
-       bv:=TBESENEnvironmentRecord(up^.ReferenceBase.EnvRec).DeleteArrayIndex(TBESENUINT32(up^.ReferenceIndex));
-      end;
-     end else begin
-      bv:=TBESENEnvironmentRecord(up^.ReferenceBase.EnvRec).DeleteIndex(up^.ReferenceIndex,up^.ReferenceID);
-     end;
-     vp^.ValueType:=bvtBOOLEAN;
-     vp^.Bool:=bv;
-    end;
-    else begin
-     if up^.ReferenceIsStrict then begin
-      BESENThrowSyntaxError(self, '"delete" not allowed here');
-     end else begin
-      vp^.ValueType:=bvtBOOLEAN;
-      vp^.Bool:=true;
-     end;
-    end;
-   end;
-  end;
-  bvtLOCAL:begin
-   if TBESEN(Instance).IsStrict then begin
-    BESENThrowSyntaxError(self, '"delete" not allowed here');
-   end;
-   vp^.ValueType:=bvtBOOLEAN;
-   vp^.Bool:=Context.VariableEnvironment.EnvironmentRecord.DeleteIndex(up^.LocalIndex,-1);
-  end;
-  else begin
-   vp^.ValueType:=bvtBOOLEAN;
-   vp^.Bool:=true;
-  end;
+
+	Destination:=@RegisterValues[Operands^[0]]; // result value
+	Source:=@RegisterValues[Operands^[1]];
+
+	case Source^.ValueType of
+		bvtREFERENCE: begin
+
+		// reference values
+
+		case Source^.ReferenceBase.ValueType of
+			brbvtBOOLEAN,brbvtNUMBER,brbvtSTRING: begin
+				BESENReferenceBaseValueToValue(Source^.ReferenceBase,Temp); // source to temp value.
+
+				if Source^.ReferenceID<0 then begin
+					if Source^.ReferenceIndex<0 then begin
+						bv:= TBESEN(Instance).ToObj(Temp).DeleteEx(Source^.Str,Source^.ReferenceIsStrict,Descriptor,Source^.ReferenceHash);
+					end else begin
+						bv:= TBESEN(Instance).ToObj(Temp).DeleteArrayIndex(Source^.ReferenceIndex,Source^.ReferenceIsStrict);
+					end;
+				end else begin
+					bv:= TBESEN(Instance).ToObj(Temp).DeleteIndex(Source^.ReferenceIndex,Source^.ReferenceID,Source^.ReferenceIsStrict);
+				end;
+
+				Destination^.ValueType:=bvtBOOLEAN;
+				Destination^.Bool:=bv;
+			end;
+			brbvtOBJECT: begin
+
+            	// get besen variable that is being deleted from object.
+
+                if Source^.ReferenceID<0 then begin
+					if Source^.ReferenceIndex<0 then begin
+						bv:=TBESENObject(Source^.ReferenceBase.Obj).GetEx(Source^.Str,DeletedVal, Descriptor );
+					end else begin
+						bv:=TBESENObject(Source^.ReferenceBase.Obj).GetArrayIndex(Source^.ReferenceIndex, DeletedVal );
+					end;
+				end else begin
+					bv:=TBESENObject(Source^.ReferenceBase.Obj).GetIndex(Source^.ReferenceIndex,Source^.ReferenceID, DeletedVal );
+				end;
+
+                // id value is object, notify it that it is being deleted.
+                if (DeletedVal.ValueType = bvtOBJECT) and Assigned(DeletedVal.Obj) then
+					NotifyNativeObjectDelete(TBESENObject(DeletedVal.Obj));
+
+				if Source^.ReferenceID<0 then begin
+					if Source^.ReferenceIndex<0 then begin
+						bv:=TBESENObject(Source^.ReferenceBase.Obj).DeleteEx(Source^.Str,Source^.ReferenceIsStrict,Descriptor,Source^.ReferenceHash);
+					end else begin
+						bv:=TBESENObject(Source^.ReferenceBase.Obj).DeleteArrayIndex(Source^.ReferenceIndex,Source^.ReferenceIsStrict);
+					end;
+				end else begin
+					bv:=TBESENObject(Source^.ReferenceBase.Obj).DeleteIndex(Source^.ReferenceIndex,Source^.ReferenceID,Source^.ReferenceIsStrict);
+				end;
+
+				Destination^.ValueType:=bvtBOOLEAN;
+				Destination^.Bool:=bv;
+			end;
+			brbvtENVREC:begin
+				if Source^.ReferenceIsStrict then begin
+					BESENThrowSyntaxError(self, '"delete" not allowed here');
+				end;
+				// ADD: resolve the value out of the environment record, check if
+				// it is an object and notify. Environment records hold variable
+				// bindings — the value bound to the name may itself be an object.
+				if Source^.ReferenceID<0 then begin
+					if Source^.ReferenceIndex<0 then begin
+						TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).GetBindingValueEx(Source^.Str,Source^.ReferenceIsStrict,DeletedVal,Descriptor,Source^.ReferenceHash);
+					end else begin
+						TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).GetArrayIndexValue( TBESENUINT32(Source^.ReferenceIndex), Source^.ReferenceIsStrict,	{ADD: strict boolean} DeletedVal);
+					end;
+				end else begin
+					TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).GetIndexValue(Source^.ReferenceIndex,Source^.ReferenceID,Source^.ReferenceIsStrict, DeletedVal);
+				end;
+
+				if (DeletedVal.ValueType = bvtOBJECT) and Assigned(DeletedVal.Obj) then
+					NotifyNativeObjectDelete(TBESENObject(DeletedVal.Obj));
+
+				// Now do the actual delete
+				if Source^.ReferenceID<0 then begin
+					if Source^.ReferenceIndex<0 then begin
+						bv:=TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).DeleteBindingEx(Source^.Str,Descriptor,Source^.ReferenceHash);
+					end else begin
+						bv:=TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).DeleteArrayIndex(TBESENUINT32(Source^.ReferenceIndex));
+					end;
+				end else begin
+					bv:=TBESENEnvironmentRecord(Source^.ReferenceBase.EnvRec).DeleteIndex(Source^.ReferenceIndex,Source^.ReferenceID);
+				end;
+				Destination^.ValueType:=bvtBOOLEAN;
+				Destination^.Bool:=bv;
+			end;
+			else begin
+				if Source^.ReferenceIsStrict then begin
+					BESENThrowSyntaxError(self, '"delete" not allowed here');
+				end else begin
+					Destination^.ValueType:=bvtBOOLEAN;
+					Destination^.Bool:=true;
+				end;
+			end;
+		end;
+
+	end; // reference
+ 	bvtLOCAL: begin // "This register slot does not hold the actual value directly — it holds an index (LocalIndex) pointing into the current function's local variable array in the environment record."
+
+    	// local variables are in Context.VariableEnvironment
+
+		if TBESEN(Instance).IsStrict then begin
+			BESENThrowSyntaxError(self, '"delete" not allowed here');
+		end;
+
+		// ADD: resolve the local variable's value and check if it is a
+		// native object before deleting the binding
+
+		Context.VariableEnvironment.EnvironmentRecord.GetIndexValue(Source^.LocalIndex,-1,TBESEN(Instance).IsStrict,Temp);
+
+		if (Temp.ValueType = bvtOBJECT) and Assigned(Temp.Obj) then
+			NotifyNativeObjectDelete(TBESENObject(Temp.Obj));
+
+		Destination^.ValueType:=	bvtBOOLEAN;
+		Destination^.Bool:=			Context.VariableEnvironment.EnvironmentRecord.DeleteIndex(Source^.LocalIndex,-1);
+
+	end; // local
+	else begin
+		Destination^.ValueType:=bvtBOOLEAN;
+		Destination^.Bool:=true;
+	end;
  end;
 end;
 
@@ -2013,8 +2089,21 @@ end;
 
 procedure TBESENCodeContext.OpLINE(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
 begin
- TBESEN(Instance).LineNumber:=Code.Locations[Operands^[0]].LineNumber;
+
+ // dont change, this is part of JIT. Operands^[0] is line index bopLINE
+
+ TBESEN(Instance).codelocation_SetInfo(
+ 	Code.Locations[Operands^[0]].iLineNumber,
+    Code.Locations[Operands^[0]].iColumnNumber,
+    Code.Locations[Operands^[0]].iFilename,
+    'TBESENCodeContext.OpLINE'
+    );
+
+{
+ TBESEN(Instance).LineNumber:=Code.Locations[Operands^[0]].iLineNumber;
+ TBESEN(Instance).ColumnNumber:=Code.Locations[Operands^[0]].iColumnNumber;
  TBESEN(Instance).CurrentFile:=Code.Locations[Operands^[0]].Filename;
+}
 end;
 
 procedure TBESENCodeContext.OpGC(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -2190,7 +2279,33 @@ end;
 
 procedure TBESENCodeContext.OpGETVALUEREF(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
 begin
+ // dont do this.. it fucks up stack:
+
+ {
+ var
+	register1, register2: TBESENValue;
+	refft: TBESENReferenceBaseValueType;
+
+ register1:= RegisterValues[Operands^[1]];
+ register2:= RegisterValues[Operands^[0]];
+ refft:= RegisterValues[Operands^[1]].ReferenceBase.ValueType;
+
+ OutputDebugStringW(pwidechar(wideformat('OpGETVALUEREF operand1: type ''%s'', operand ''%d'' value ''%s'' operand2: type ''%s'', operand ''%d'' value ''%s''', [
+
+     besenvaluetypetostring(RegisterValues[Operands^[0]].ReferenceBase.ValueType),
+	 Operands^[0],
+     besenvaluetostring(register1),
+
+     besenvaluetypetostring(RegisterValues[Operands^[1]].ReferenceBase.ValueType),
+	 Operands^[1],
+     besenvaluetostring(register2)
+     ]
+ )));
+}
+
+
  GetRefProcs[RegisterValues[Operands^[1]].ReferenceBase.ValueType](RegisterValues[Operands^[1]],RegisterValues[Operands^[0]]);
+
 end;
 
 procedure TBESENCodeContext.OpPUTVALUEREF(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
@@ -2988,8 +3103,9 @@ end;
 
 procedure TBESENCodeContext.OpTRACENEW(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
 var Counter,CountArguments:integer;
-    OldIsStrict:boolean;
+    OldIsStrict, calltraceresult:boolean;
     ConstructorValue:PBESENValue;
+	shouldtrace: TBESENBoolean;
 begin
  OldIsStrict:=TBESEN(Instance).IsStrict;
  try
@@ -3003,13 +3119,28 @@ begin
   end else if not TBESENObject(ConstructorValue^.Obj).HasConstruct then begin
    BESENThrowTypeErrorObjectHasNoConstruct(self);
   end;
-  if Trace(bttCALL) then begin
+
+  shouldtrace:= TBESEN(Instance).CodeTracable;
+  calltraceresult:= false;
+
+  if (shouldtrace = true) then
+  	calltraceresult:= Trace(bttCALL); // trace checks for TraceHook.
+
+  if ( (shouldtrace = false) or (calltraceresult = true) ) then begin
+
    TBESEN(Instance).GarbageCollector.TriggerCollect;
    TBESEN(Instance).ObjectConstruct(TBESENObject(ConstructorValue^.Obj),BESENUndefinedValue,@ParamArgs[0],CountArguments,RegisterValues[Operands^[0]]);
-   Trace(bttRETURN);
+
+   if calltraceresult = true then
+   	Trace(bttRETURN);
+
   end else begin
-   RegisterValues[Operands^[0]].ValueType:=bvtUNDEFINED;
+
+   if shouldtrace = true then // calltraceresult was apparently false.
+  	RegisterValues[Operands^[0]].ValueType:= bvtUNDEFINED;
+
   end;
+
  finally
   TBESEN(Instance).IsStrict:=OldIsStrict;
  end;
@@ -3018,25 +3149,56 @@ end;
 procedure TBESENCodeContext.OpTRACECALL(Operands:PBESENINT32Array); {$ifdef UseRegister}register;{$endif}
 var Counter,CountArguments:integer;
     Ref,Func:PBESENValue;
-    OldIsStrict,DirectCall:boolean;
+    OldIsStrict,DirectCall, calltraceresult:boolean;
+	errmsg: WideString;
+	shouldtrace: TBESENBoolean;
+	erroronwhat: TBESENString;
 begin
  OldIsStrict:=TBESEN(Instance).IsStrict;
  try
   Ref:=@RegisterValues[Operands^[1]];
   Func:=@RegisterValues[Operands^[2]];
   CountArguments:=Operands^[3];
+
+  erroronwhat:= ''; // not a object value type.
+
+  if Func^.ValueType <> bvtOBJECT then begin
+
+  	// besenvaluetypetostring(CallThisArg.ValueType),
+
+    erroronwhat:= besenvaluetostring(CallThisArg) + '.';
+
+    //OutputDebugStringW( pwidechar( errmsg ));
+    //OutputDebugStringW( pwidechar( besenvaluetostring(CallThisArg) ));
+    //OutputDebugStringW( pwidechar(besenvaluetypetostring(CallThisArg.ValueType) ));
+
+    // BESENThrowTypeErrorNotAFunction(self, besenvaluetostring(CallThisArg) + '->' + RegisterValues[Operands^[1]].STR, besenvaluetypetostring(RegisterValues[Operands^[1]].valuetype) );
+
+	// debugbreak();
+
+  end;
+
   for Counter:=0 to CountArguments-1 do begin
    ParamArgs[Counter]:=@RegisterValues[Operands^[Counter+4]];
   end;
-  if Func^.ValueType<>bvtOBJECT then begin
 
-   if ( (RegisterValues[Operands^[1]].valuetype = bvtSTRING) or (RegisterValues[Operands^[1]].valuetype = bvtREFERENCE) ) then
+  if Func^.ValueType<>bvtOBJECT then begin // not a besenobjectfunction ..
+
+   // TODO: automaticly add methods from rtti when dealing with besennativeobject.
+   if (RegisterValues[Operands^[1]].valuetype = bvtSTRING) then
 
     // todo: check if TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME is legit at all.
-   	BESENThrowTypeErrorNotAFunction(self, TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR)
+  	BESENThrowTypeErrorNotAFunction(self, erroronwhat + {TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' +} RegisterValues[Operands^[1]].STR , besenvaluetypetostring(RegisterValues[Operands^[1]].valuetype) )
+
+   else if (RegisterValues[Operands^[1]].valuetype = bvtREFERENCE) then
+
+
+
+    // todo: check if TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME is legit at all.
+  	BESENThrowTypeErrorNotAFunction(self, erroronwhat + {TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.'} RegisterValues[Operands^[1]].STR , besenvaluetypetostring(RegisterValues[Operands^[1]].valuetype) + '(' + besenvaluetypetostring(Ref^.ReferenceBase.ValueType) + ' ) ')
 
    else
-    BESENThrowTypeErrorNotAFunction(self, 'unknown type: ' + IntToStr(RegisterValues[Operands^[1]].valuetype));
+    BESENThrowTypeErrorNotAFunction(self, 'unknown type: ' + IntToStr(RegisterValues[Operands^[1]].valuetype), besenvaluetypetostring(RegisterValues[Operands^[1]].valuetype));
 
   end else if not (assigned(Func^.Obj) and TBESENObject(Func^.Obj).HasCall) then begin
    BESENThrowTypeErrorNotCallable(self);
@@ -3050,7 +3212,13 @@ begin
   // TODO: stack trace tracing: (TBESENOBJECT(Ref^.ReferenceBase.obj).OBJECTCLASSNAME + '.' + RegisterValues[Operands^[1]].STR);
   // add file and line info too.
 
-  if Trace(bttCALL) then begin
+  shouldtrace:= TBESEN(Instance).CodeTracable;
+  calltraceresult:= false;
+
+  if (shouldtrace = true) then
+  	calltraceresult:= Trace(bttCALL); // trace checks for TraceHook.
+
+  if ( (shouldtrace = false) or (calltraceresult = true) ) then begin
 
    if Func^.Obj=TBESEN(Instance).ObjectGlobalEval then begin
     DirectCall:=((Ref^.ValueType=bvtREFERENCE) and (Ref^.ReferenceBase.ValueType=brbvtENVREC)) and TBESENEnvironmentRecord(Ref^.ReferenceBase.EnvRec).HasBindingEx('eval',Descriptor);
@@ -3058,7 +3226,10 @@ begin
    end else begin
     TBESEN(Instance).ObjectCall(TBESENObject(Func^.Obj),CallThisArg,@ParamArgs[0],CountArguments,RegisterValues[Operands^[0]]);
    end;
-   Trace(bttRETURN);
+
+   if calltraceresult = true then // trace is true and trace returned true.
+	   Trace(bttRETURN);
+
   end;
 
  finally
@@ -3493,6 +3664,7 @@ asm
     add dword ptr [esi+TBESENCodeContext.PC],ebx
     mov eax,esi
     call dword ptr [ecx*4+offset BESENCodeContextOpcodes]
+    // todo count number of calls made: TBESEN(CodeContext.Instance).GeneratedOpcodes += Code.ByteCodeLen;
   @LoopStart:
    cmp dword ptr [esi+TBESENCodeContext.BlockRunning],0
    jnz @LoopBegin
@@ -3580,6 +3752,9 @@ begin
   Operands:=@ByteCode^[PC+1];
   inc(PC,1+(Instruction shr 8));
   TMethod(Handler).Code:=BESENCodeContextOpcodes[Instruction and $ff];
+
+  // todo count number of calls made: TBESEN(CodeContext.Instance).GeneratedOpcodes += Code.ByteCodeLen;
+
   TMethod(Handler).Data:=self;
   Handler(Operands);
  end;
@@ -3794,9 +3969,11 @@ begin
    SetPrecisionMode(BESENFPUPrecisionMode);
   end;
 {$endif}
+
   for i:=0 to length(RegisterValues)-1 do begin
    RegisterValues[i].ValueType:=bvtUNDEFINED;
   end;
+
   if Code.Body.EnableLocalsOptimization then begin
    EnvironmentRecord:=Context.VariableEnvironment.EnvironmentRecord;
    IsDeclarativeEnvironmentRecord:=EnvironmentRecord is TBESENDeclarativeEnvironmentRecord;
@@ -3811,11 +3988,13 @@ begin
     end;
    end;
   end;
+
   Running:=true;
   Str:='';
   PC:=0;
   BlockLevel:=0;
   Block:=@Blocks[0];
+
 {$ifdef HasJIT}
   if not assigned(Code.NativeCode) then begin
    if not BESENGenerateNativeCode(self) then begin
@@ -3827,10 +4006,16 @@ begin
    end;
   end;
 {$endif}
+
+// why is this duplicated ?! because of jit?
   LookupNames:=Code.LookupNames.FList;
+  LookupMaxIndex:= code.LookupNames.Count;
+
   ExecuteTryBlockLevel;
+
  finally
-{$ifndef BESENNoFPU}
+
+  {$ifndef BESENNoFPU}
   if OldFPUExceptionMask<>BESENFPUExceptionMask then begin
    SetExceptionMask(OldFPUExceptionMask);
   end;
@@ -3841,6 +4026,7 @@ begin
    SetPrecisionMode(OldFPUPrecisionMode);
   end;
 {$endif}
+
   Context:=nil;
  end;
  BesenCopyValue(AResult,ResultValue);

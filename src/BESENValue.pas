@@ -33,7 +33,7 @@ unit BESENValue;
 
 interface
 
-uses BESENConstants,BESENTypes,BESENStringUtils,BESENCharSet,Variants;
+uses BESENConstants, BESENTypes,BESENStringUtils,BESENCharSet,Variants;
 
 const brbvtUNDEFINED=0;
       brbvtBOOLEAN=1;
@@ -170,7 +170,10 @@ type TBESENReferenceBaseValueType=ptruint;
 
      TBESENRefBaseValueToCallThisArgValueProcs=array[brbvtFIRST..brbvtLAST] of TBESENRefBaseValueToCallThisArgValueProc;
 
-function besenvaluetypetostring(i: integer): TBESENString;
+     function besenReferencevaluetypetostring(i: integer): TBESENString;
+     function besenvaluetypetostring(i: integer): TBESENString;
+     function besenvaluetostring(const AValue: Tbesenvalue): TBESENString; overload;
+     function besenvaluetostring(const AValue: TBESENReferenceBaseValue): TBESENString; overload;
 
 procedure BESENCopyReferenceBaseValueUndefined(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
 procedure BESENCopyReferenceBaseValueBoolean(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
@@ -267,17 +270,17 @@ const BESENCopyReferenceBaseValueProcs:TBESENCopyReferenceBaseValueProcs=(BESENC
                                                                                           BESENRefBaseValueToCallThisArgValueObject,
                                                                                           BESENRefBaseValueToCallThisArgValueEnvRec);
 
-function BESENValueToVariant(const v:TBESENValue):Variant;
-procedure BESENVariantToValue(const vt:Variant;var v:TBESENValue);
-
-function BESENBooleanValue(const Bool:TBESENBoolean):TBESENValue;
-function BESENNumberValue(const Num:TBESENNumber):TBESENValue;
-function BESENStringValue(const Str:TBESENString):TBESENValue;
+function BESENValueToVariant(const v:TBESENValue):Variant; inline;
+procedure BESENVariantToValue(const vt:Variant;var v:TBESENValue); inline;
+function BESENBooleanValue(const Bool:TBESENBoolean):TBESENValue; inline;
+function BESENNumberValue(const Num:TBESENNumber):TBESENValue; inline;
+function BESENStringValue(const Str:TBESENString):TBESENValue; inline;
 {$ifndef BESENSingleStringType}
-function BESENStringLocaleCharsetValue(const Str:TBESENAnsiString):TBESENValue;
+function BESENStringLocaleCharsetValue(const Str:TBESENAnsiString):TBESENValue; inline;
 {$endif}
-function BESENObjectValue(const Obj:TObject):TBESENValue;
-function BESENObjectValueEx(const Obj:TObject):TBESENValue;
+function BESENObjectValue(const Obj:TObject):TBESENValue; inline;
+function BESENObjectValueEx(const Obj:TObject):TBESENValue; inline;
+function BESENObjectValueEx2(const Obj:TObject):TBESENValue;
 
 function BESENEqualityExpressionStrictEquals(const a,b:TBESENValue):longbool; 
 
@@ -289,6 +292,21 @@ var BESENEmptyValue:TBESENValue;
 implementation
 
 uses BESEN,BESENNumberUtils,BESENEnvironmentRecord;
+
+function besenReferencevaluetypetostring(i: integer): TBESENString;
+begin
+
+ case i of
+	brbvtUNDEFINED: exit('brbvtUNDEFINED');
+	brbvtBOOLEAN  : exit('brbvtBOOLEAN');
+	brbvtNUMBER   : exit('brbvtNUMBER');
+	brbvtSTRING   : exit('brbvtSTRING');
+	brbvtOBJECT   : exit('brbvtOBJECT');
+	brbvtENVREC   : exit('brbvtENVREC');
+ end;
+
+ exit('besenReferencevaluetypetostring: UNKNOWN.');
+end;
 
 function besenvaluetypetostring(i: integer): TBESENString;
 begin
@@ -308,6 +326,83 @@ begin
 
 	exit('besenvaluetypetostring: UNKNOWN.');
 
+end;
+
+// based on TBESEN.ToStringValue
+function besenvaluetostring(const AValue: Tbesenvalue): TBESENString;
+begin
+
+	case AValue.ValueType of
+
+		bvtREFERENCE:   exit('REFERENCE');
+		bvtLOCAL:       exit('LOCAL');
+		bvtENVREC:      exit('ENVREC');
+		bvtNONE:        exit('NONE');
+
+	   bvtUNDEFINED:begin
+	    exit('undefined');
+	   end;
+	   bvtNULL:begin
+	    exit('null');
+	   end;
+	   bvtBOOLEAN:begin
+
+	    if AValue.Bool then begin
+	     exit('true');
+	    end else begin
+	     exit('false');
+	    end;
+	   end;
+	   bvtNUMBER:begin
+	    exit( BESENFloatToStr(AValue.Num) );
+	   end;
+	   bvtSTRING:begin
+	    exit(AValue.Str);
+	   end;
+	   bvtOBJECT:begin
+	    exit(AValue.Obj.ClassName);
+	   end;
+	end;
+
+	exit('besenvaluetostring: UNKNOWN.');
+end;
+
+function besenvaluetostring(const AValue: TBESENReferenceBaseValue): TBESENString;
+begin
+
+    	case AValue.ValueType of
+
+    		bvtREFERENCE:   exit('REFERENCE');
+    		bvtLOCAL:       exit('LOCAL');
+    		bvtENVREC:      exit('ENVREC');
+    		bvtNONE:        exit('NONE');
+
+    	   bvtUNDEFINED:begin
+    	    exit('undefined');
+    	   end;
+    	   bvtNULL:begin
+    	    exit('null');
+    	   end;
+    	   bvtBOOLEAN:begin
+
+    	    if AValue.Bool then begin
+    	     exit('true');
+    	    end else begin
+    	     exit('false');
+    	    end;
+    	   end;
+    	   bvtNUMBER:begin
+    	    exit( BESENFloatToStr(AValue.Num) );
+    	   end;
+    	   bvtSTRING:begin
+    	    exit(AValue.Str);
+    	   end;
+    	   bvtOBJECT:begin
+    	    exit(AValue.Obj.ClassName);
+    	   end;
+    	end;
+
+    	exit('besenvaluetostring: UNKNOWN.');
 end;
 
 procedure BESENCopyReferenceBaseValueUndefined(var Dest:TBESENReferenceBaseValue;const Src:TBESENReferenceBaseValue); {$ifdef UseRegister}register;{$endif}
@@ -419,6 +514,9 @@ end;
 
 procedure BESENCopyValue(var Dest:TBESENValue;const Src:TBESENValue); {$ifdef UseRegister}register;{$endif}
 begin
+
+ // if ((Src.ValueType > high(BESENCopyValueProcs)) or (Src.ValueType < low(BESENCopyValueProcs))) then DebugBreak;
+
  BESENCopyValueProcs[Src.ValueType](Dest,Src);
 end;
 

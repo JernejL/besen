@@ -188,7 +188,7 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
       public
        ObjectClassName:TBESENString;
        ObjectName:TBESENString;
-       Properties:TBESENObjectPropertyContainer;
+       Properties:TBESENObjectPropertyContainer; // TODO: late static binding for RTTI metproperties
        Extensible:TBESENBoolean;
        PrototypeObject:TBESENObject;
        PrototypeChildren:TBESENPointerSelfBalancedTree;
@@ -204,7 +204,7 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
        procedure PutPrototype(const V:TBESENValue;Throw:TBESENBoolean);
        function OverwriteAccessor(const P:TBESENString;const Getter:TBESENObject=nil;const Setter:TBESENObject=nil;const Attributes:TBESENObjectPropertyDescriptorAttributes=[];Throw:TBESENBoolean=false):TBESENBoolean;
        function OverwriteData(const P:TBESENString;const Value:TBESENValue;const Attributes:TBESENObjectPropertyDescriptorAttributes=[];Throw:TBESENBoolean=false):TBESENBoolean;
-       function GetOwnProperty(const P:TBESENString;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean; virtual;
+       function GetOwnProperty(const PropertyName:TBESENString;var IntoDescriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean; virtual;
        function GetProperty(const P:TBESENString;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean;
        function GetEx(const P:TBESENString;var AResult:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Base:TBESENObject=nil;Hash:TBESENHash=0):boolean; virtual;
        function GetFull(const P:TBESENString;var AResult:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Base:TBESENObject=nil;Hash:TBESENHash=0):boolean;
@@ -1555,22 +1555,30 @@ begin
 end;
 
 procedure TBESENObject.RegisterNativeFunction(const AName:TBESENSTRING;const ANative:TBESENNativeFunction;const Len:longint=0;const Attributes:TBESENObjectPropertyDescriptorAttributes=[];const AHasPrototypeProperty:longbool=false);
-var o:TBESENObjectNativeFunction;
+var
+    o:TBESENObjectNativeFunction;
 begin
- o:=TBESENObjectNativeFunction.Create(Instance,TBESEN(Instance).ObjectFunctionPrototype,AHasPrototypeProperty);
- o.Native:=ANative;
- o.ObjectName:=AName;
- TBESEN(Instance).GarbageCollector.Add(o);
- o.GarbageCollectorLock;
- try
-  OverwriteData(AName,BESENObjectValueEx(o),Attributes,true);
-  if (TBESEN(Instance).Compatibility and COMPAT_JS)<>0 then begin
-   o.OverwriteData('name',BESENStringValue(AName),[]);
-  end;
-  o.OverwriteData('length',BESENNumberValue(Len),[]);
- finally
-  o.GarbageCollectorUnlock;
- end;
+
+	o:=TBESENObjectNativeFunction.Create(Instance,TBESEN(Instance).ObjectFunctionPrototype,AHasPrototypeProperty);
+	o.Native:=ANative;
+	o.ObjectName:=AName;
+	TBESEN(Instance).GarbageCollector.Add(o);
+	o.GarbageCollectorLock;
+
+	try
+
+    	OverwriteData(AName,BESENObjectValueEx(o),Attributes,true);
+
+		if (TBESEN(Instance).Compatibility and COMPAT_JS)<>0 then begin
+			o.OverwriteData('name',BESENStringValue(AName),[]);
+		end;
+
+        o.OverwriteData('length',BESENNumberValue(Len),[]);
+
+	finally
+		o.GarbageCollectorUnlock;
+	end;
+
 end;
 
 function TBESENObject.HasRecursivePrototypeChain:TBESENBoolean;
@@ -1673,45 +1681,53 @@ begin
  result:=true;
 end;
 
-function TBESENObject.GetOwnProperty(const P:TBESENString;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean;
-var Prop:TBESENObjectProperty;
+function TBESENObject.GetOwnProperty(const PropertyName:TBESENString; var IntoDescriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean;
+var
+    Prop: TBESENObjectProperty;
 begin
- Prop:=Properties.Get(P,Hash);
+
+ //OutputDebugStringW(pwidechar('GetOwnProperty call for ' + PropertyName + '.' + #13));
+
+ Prop:=Properties.Get(PropertyName,Hash);
  LastProp:=Prop;
- if assigned(Prop) then begin
+
+ if assigned(Prop) then begin // prop exists
   if ([boppVALUE,boppWRITABLE]*Prop.Descriptor.Presents)<>[] then begin
-   BESENCopyValue(Descriptor.Value,Prop.Descriptor.Value);
-   Descriptor.Getter:=nil;
-   Descriptor.Setter:=nil;
-   Descriptor.Attributes:=Prop.Descriptor.Attributes;
-   Descriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE];
+   BESENCopyValue(IntoDescriptor.Value,Prop.Descriptor.Value);
+   IntoDescriptor.Getter:=nil;
+   IntoDescriptor.Setter:=nil;
+   IntoDescriptor.Attributes:=Prop.Descriptor.Attributes;
+   IntoDescriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE];
    result:=true;
   end else if ([boppGETTER,boppSETTER]*Prop.Descriptor.Presents)<>[] then begin
-   Descriptor.Value.ValueType:=bvtUNDEFINED;
-   Descriptor.Getter:=Prop.Descriptor.Getter;
-   Descriptor.Setter:=Prop.Descriptor.Setter;
-   Descriptor.Attributes:=Prop.Descriptor.Attributes*[bopaENUMERABLE,bopaCONFIGURABLE];
-   Descriptor.Presents:=[boppGETTER,boppSETTER,boppENUMERABLE,boppCONFIGURABLE];
+   IntoDescriptor.Value.ValueType:=bvtUNDEFINED;
+   IntoDescriptor.Getter:=Prop.Descriptor.Getter;
+   IntoDescriptor.Setter:=Prop.Descriptor.Setter;
+   IntoDescriptor.Attributes:=Prop.Descriptor.Attributes*[bopaENUMERABLE,bopaCONFIGURABLE];
+   IntoDescriptor.Presents:=[boppGETTER,boppSETTER,boppENUMERABLE,boppCONFIGURABLE];
    result:=true;
   end else begin
    result:=false;
   end;
- end else if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and (P='__proto__') then begin
+ end else if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and (PropertyName='__proto__') then begin // no prop exists.
   if assigned(Prototype) then begin
-   Descriptor.Value.ValueType:=bvtOBJECT;
-   Descriptor.Value.Obj:=Prototype;
+   IntoDescriptor.Value.ValueType:=bvtOBJECT;
+   IntoDescriptor.Value.Obj:=Prototype;
   end else begin
-   Descriptor.Value.ValueType:=bvtNULL;
+   IntoDescriptor.Value.ValueType:=bvtNULL;
   end;
-  Descriptor.Getter:=nil;
-  Descriptor.Setter:=nil;
-  Descriptor.Attributes:=[bopaWRITABLE];
-  Descriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE,boppPROTO];
+  IntoDescriptor.Getter:=nil;
+  IntoDescriptor.Setter:=nil;
+  IntoDescriptor.Attributes:=[bopaWRITABLE];
+  IntoDescriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE,boppPROTO];
   result:=true;
  end else begin
-  Descriptor.Presents:=[];
+  IntoDescriptor.Presents:=[];
   result:=false;
  end;
+
+    //OutputDebugStringW(pwidechar('GetOwnProperty RETURN besencopyvalue: ' + PropertyName + ' = ' + inttostr(IntoDescriptor.Value.ValueType) + '(has prop = ' + inttostr(ord(assigned(Prop))) + ')'  + '(resulkt = ' + inttostr(ord(result)) + ')' + #13  ));
+
 end;
 
 function TBESENObject.GetProperty(const P:TBESENString;var Descriptor:TBESENObjectPropertyDescriptor;Hash:TBESENHash=0):boolean;
@@ -2483,8 +2499,9 @@ begin
 end;
 
 procedure TBESENObject.Mark;
-var CurrentItem:TBESENObjectProperty;
+	var CurrentItem:TBESENObjectProperty;
 begin
+
  TBESEN(Instance).GarbageCollector.GrayIt(Prototype);
  CurrentItem:=Properties.First;
  while assigned(CurrentItem) do begin
@@ -2493,7 +2510,9 @@ begin
   TBESEN(Instance).GarbageCollector.GrayIt(TBESENObject(CurrentItem.Descriptor.Setter));
   CurrentItem:=CurrentItem.Next;
  end;
+
  inherited Mark;
+
 end;
 
 procedure BESENCheckObjectCoercible(const v:TBESENValue; const Instance:Tobject;const InContext: Tobject; const Propertyname: tbesenstring); {$ifdef caninline}inline;{$endif}

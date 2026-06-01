@@ -5,8 +5,8 @@
 BESEN - A ECMAScript Fifth Edition Object Pascal Implementation
 Copyright (C) 2009-2016, Benjamin 'BeRo' Rosseaux
 
-The source code of the BESEN ecmascript engine library and helper tools are 
-distributed under the Library GNU Lesser General Public License Version 2.1 
+The source code of the BESEN ecmascript engine library and helper tools are
+distributed under the Library GNU Lesser General Public License Version 2.1
 (see the file copying.txt) with the following modification:
 
 As a special exception, the copyright holders of this library give you
@@ -16,7 +16,7 @@ and to copy and distribute the resulting executable under terms of your choice,
 provided that you also meet, for each linked independent module, the terms
 and conditions of the license of that module. An independent module is a module
 which is not derived from or based on this library. If you modify this
-library, you may extend this exception to your version of the library, but you 
+library, you may extend this exception to your version of the library, but you
 are not obligated to do so. If you do not wish to do so, delete this exception
 statement from your version.
 
@@ -33,7 +33,7 @@ unit BESENLexer;
 
 interface
 
-uses BESENConstants,BESENTypes,BESENStringUtils,BESENBaseObject;
+uses TypInfo, BESENConstants,BESENTypes,BESENStringUtils,BESENBaseObject;
 
 type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
 
@@ -78,21 +78,31 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
 
      TBESENLexerTokenTypeSet=set of TBESENLexerTokenType;
 
-     TBESENLexerToken=record
-      TokenType:TBESENLexerTokenType;
-      Name:TBESENString;
-      StringValue:TBESENString;
-      IntValue:int64;
-      FloatValue:double;
-      LineNumber:integer;
-      LineEnd:longbool;
-      WasLineEnd:longbool;
-      OldChar:TBESENUTF32CHAR;
-      OldLineNumber:integer;
-      OldPosition:integer;
-      OldCharEOF:longbool;
-      OldTokenEOF:longbool;
-     end;
+	 { TBESENLexerToken }
+
+	TBESENLexerToken=record
+		TokenType:TBESENLexerTokenType;
+
+        Name:TBESENString; // various
+		StringValue:TBESENString; // a shitton of options, from regex to strings and constants. JAVASCRIPT IS WEIRD.
+		IntValue:int64; // when lttINTEGER
+		FloatValue:double; // when lttFLOAT
+
+		GLineNumber:integer;
+		GLineColumn: integer;
+
+		LineEnd:longbool;
+		WasLineEnd:longbool;
+		OldChar:TBESENUTF32CHAR;
+		OldLineNumber:integer;
+		OldPosition:integer;
+		OldCharEOF:longbool;
+		OldTokenEOF:longbool;
+
+		class operator Initialize (var Dest: TBESENLexerToken);
+        Procedure SetLineColumn(const setline: integer; const setcolumn: integer);
+
+	end;
 
 	 { TBESENLexer }
 
@@ -102,7 +112,7 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
       public
        Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
        Position:integer; // character's offset in file
-   	   fLinePosition: integer; // beginning of last line's first character
+   	   fLinePosition: integer; // beginning of last line's first character (start of line)
        fLineNumber:integer;
        CurrentChar:TBESENUTF32CHAR;
        WarningProc:TBESENWarningProc;
@@ -120,6 +130,7 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
        function CurrentColumn: integer;
        published
        property LineNumber:integer read fLineNumber write SetLineNumber;
+       function LineColumn(): integer;
        procedure NextLine;
      end;
 
@@ -169,6 +180,8 @@ const BESENLexerReservedTokens:TBESENLexerTokenTypeSet=[ltkCLASS,ltkCONST,ltkENU
                                                                      'private','protected','public','static',
                                                                      'yield');
 
+	function LexerTypeTostring(const tokentype: TBESENLexerTokenType): TBESENString;
+
 implementation
 
 uses {$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENRegExp,BESENErrors,BESENNumberUtils, strutils;
@@ -198,6 +211,151 @@ const KeywordNames:array[TKeywordToken] of TBESENUTF16STRING=
         'yield');
 
       Keywords:TKeywords=nil;
+
+function LexerTypeTostring(const tokentype: TBESENLexerTokenType): TBESENString;
+begin
+
+	case tokentype of
+	 	ltEOF: exit('ltEOF');
+	 	ltkBREAK: exit('ltkBREAK');
+	 	ltkCASE: exit('ltkCASE');
+	 	ltkCATCH: exit('ltkCATCH');
+	 	ltkCLASS: exit('ltkCLASS');
+	 	ltkCONST: exit('ltkCONST');
+	 	ltkCONTINUE: exit('ltkCONTINUE');
+	 	ltkDEBUGGER: exit('ltkDEBUGGER');
+	 	ltkDEFAULT: exit('ltkDEFAULT');
+	 	ltkDELETE: exit('ltkDELETE');
+	 	ltkDO: exit('ltkDO');
+	 	ltkELSE: exit('ltkELSE');
+	 	ltkENUM: exit('ltkENUM');
+	 	ltkEXPORT: exit('ltkEXPORT');
+	 	ltkEXTENDS: exit('ltkEXTENDS');
+	 	ltkFALSE: exit('ltkFALSE');
+	 	ltkFINALLY: exit('ltkFINALLY');
+	 	ltkFOR: exit('ltkFOR');
+	 	ltkFUNCTION: exit('ltkFUNCTION');
+	 	ltkIF: exit('ltkIF');
+	 	ltkIMPLEMENTS: exit('ltkIMPLEMENTS');
+	 	ltkIMPORT: exit('ltkIMPORT');
+	 	ltkIN: exit('ltkIN');
+	 	ltkINSTANCEOF: exit('ltkINSTANCEOF');
+	 	ltkINTERFACE: exit('ltkINTERFACE');
+	 	ltkLET: exit('ltkLET');
+	 	ltkNEW: exit('ltkNEW');
+	 	ltkNULL: exit('ltkNULL');
+	 	ltkPACKAGE: exit('ltkPACKAGE');
+	 	ltkPRIVATE: exit('ltkPRIVATE');
+	 	ltkPROTECTED: exit('ltkPROTECTED');
+	 	ltkPUBLIC: exit('ltkPUBLIC');
+	 	ltkRETURN: exit('ltkRETURN');
+	 	ltkSTATIC: exit('ltkSTATIC');
+	 	ltkSUPER: exit('ltkSUPER');
+	 	ltkSWITCH: exit('ltkSWITCH');
+	 	ltkTHIS: exit('ltkTHIS');
+	 	ltkTHROW: exit('ltkTHROW');
+	 	ltkTRUE: exit('ltkTRUE');
+	 	ltkTRY: exit('ltkTRY');
+	 	ltkTYPEOF: exit('ltkTYPEOF');
+	 	ltkVAR: exit('ltkVAR');
+	 	ltkVOID: exit('ltkVOID');
+	 	ltkWHILE: exit('ltkWHILE');
+	 	ltkWITH: exit('ltkWITH');
+	 	ltkYIELD: exit('ltkYIELD');
+	 	ltNONE: exit('ltNONE');
+	 	ltoASSIGNMENT: exit('ltoASSIGNMENT');
+	 	ltoBITWISEAND: exit('ltoBITWISEAND');
+	 	ltoBITWISEANDASSIGNMENT: exit('ltoBITWISEANDASSIGNMENT');
+	 	ltoBITWISENOT: exit('ltoBITWISENOT');
+	 	ltoBITWISEOR: exit('ltoBITWISEOR');
+	 	ltoBITWISEORASSIGNMENT: exit('ltoBITWISEORASSIGNMENT');
+	 	ltoBITWISEXOR: exit('ltoBITWISEXOR');
+	 	ltoBITWISEXORASSIGNMENT: exit('ltoBITWISEXORASSIGNMENT');
+	 	ltoCLOSEBRACE: exit('ltoCLOSEBRACE');
+	 	ltoCLOSEPAREN: exit('ltoCLOSEBRACE');
+	 	ltoCLOSESQUARE: exit('ltoCLOSESQUARE');
+	 	ltoCOLON: exit('ltoCOLON');
+	 	ltoCOMMA: exit('ltoCOMMA');
+	 	ltoCONDITIONAL: exit('ltoCONDITIONAL');
+	 	ltoDIVIDE: exit('ltoDIVIDE');
+	 	ltoDIVIDEASSIGNMENT: exit('ltoDIVIDEASSIGNMENT');
+	 	ltoDOT: exit('ltoDOT');
+	 	ltoEQUALEQUAL: exit('ltoEQUALEQUAL');
+	 	ltoEQUALEQUALEQUAL: exit('ltoEQUALEQUALEQUAL');
+	 	ltoGREATERTHAN: exit('ltoGREATERTHAN');
+	 	ltoGREATERTHANOREQUAL: exit('ltoGREATERTHANOREQUAL');
+	 	ltoLESSTHAN: exit('ltoLESSTHAN');
+	 	ltoLESSTHANOREQUAL: exit('ltoLESSTHANOREQUAL');
+	 	ltoLOGICALAND: exit('ltoLOGICALAND');
+	 	ltoLOGICALNOT: exit('ltoLOGICALNOT');
+	 	ltoLOGICALOR: exit('ltoLOGICALOR');
+	 	ltoMINUS: exit('ltoMINUS');
+	 	ltoMINUSASSIGNMENT: exit('ltoMINUSASSIGNMENT');
+	 	ltoMINUSMINUS: exit('ltoMINUSMINUS');
+	 	ltoMODULO: exit('ltoMODULO');
+	 	ltoMODULOASSIGNMENT: exit('ltoMODULOASSIGNMENT');
+	 	ltoMULTIPLY: exit('ltoMODULOASSIGNMENT');
+	 	ltoMULTIPLYASSIGNMENT: exit('ltoMULTIPLYASSIGNMENT');
+	 	ltoNOTEQUAL: exit('ltoNOTEQUAL');
+	 	ltoNOTEQUALEQUAL: exit('ltoNOTEQUALEQUAL');
+	 	ltoOPENBRACE: exit('ltoOPENBRACE');
+	 	ltoOPENPAREN: exit('ltoOPENPAREN');
+	 	ltoOPENSQUARE: exit('ltoOPENSQUARE');
+	 	ltoPLUS: exit('ltoPLUS');
+	 	ltoPLUSASSIGNMENT: exit('ltoPLUSASSIGNMENT');
+	 	ltoPLUSPLUS: exit('');
+	 	ltoSEMICOLON: exit('ltoSEMICOLON');
+	 	ltoSHIFTLEFT: exit('ltoSHIFTLEFT');
+	 	ltoSHIFTLEFTASSIGNMENT: exit('ltoSHIFTLEFTASSIGNMENT');
+	 	ltoSHIFTRIGHT: exit('ltoSHIFTRIGHT');
+	 	ltoSHIFTRIGHTASSIGNMENT: exit('ltoSHIFTRIGHTASSIGNMENT');
+	 	ltoSHIFTRIGHTUNSIGNED: exit('ltoSHIFTRIGHTUNSIGNED');
+	 	ltoSHIFTRIGHTUNSIGNEDASSIGNMENT: exit('ltoSHIFTRIGHTUNSIGNEDASSIGNMENT');
+	 	lttFLOAT: exit('lttFLOAT');
+	 	lttIDENTIFIER: exit('lttIDENTIFIER');
+	 	lttINTEGER: exit('lttINTEGER');
+	 	lttSTRING: exit('lttSTRING');
+	 	ltUNKNOWN : exit('ltUNKNOWN ');
+	end;
+
+    exit('INVALID TOKEN!!!');
+
+end;
+
+{ TBESENLexerToken }
+
+class operator TBESENLexerToken.Initialize(var Dest: TBESENLexerToken);
+begin
+
+  with Dest do begin
+	  TokenType:=	ltNONE;
+	  //Name:=		'';
+	  StringValue:= '';
+	  IntValue:= 0;
+	  FloatValue:= 0.0;
+	  //LineNumber:= 90909090;
+	  //LineColumn:= 90909090;
+
+      SetLineColumn(90909090, 90909090);
+
+	  //LineEnd:= false;
+	  WasLineEnd:= false;
+	  //OldChar:
+	  OldLineNumber:= 0;
+	  OldPosition:= 0;
+	  //OldCharEOF:= 0;
+	  //OldTokenEOF:= 0;
+  end;
+
+end;
+
+procedure TBESENLexerToken.SetLineColumn(const setline: integer; const setcolumn: integer);
+begin
+
+	GLineNumber:= setline;
+	GLineColumn:= setcolumn;
+
+end;
 
 procedure TBESENLexer.SetLineNumber(AValue: integer);
 begin
@@ -392,7 +550,8 @@ var c:TBESENUTF32CHAR;
     v:longword;
  procedure AddError(const Msg:TBESENSTRING);
  begin
-  TBESEN(Instance).LineNumber:=LineNumber;
+  TBESEN(Instance).codelocation_SetInfo(LineNumber, CurrentColumn, TBESEN(Instance).CurrentFile, 'lexer'); // was FilenameSet
+
   raise EBESENSyntaxError.CreateUTF16(Msg);
  end;
  procedure AddWarning(const Msg:TBESENSTRING);
@@ -410,7 +569,7 @@ var c:TBESENUTF32CHAR;
   HasDigits:=false;
 
   s:='';
-  
+
   if c='.' then begin
    if (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) then begin
     s:=s+'.';
@@ -609,7 +768,14 @@ begin
  AResult.StringValue:='';
  AResult.FloatValue:=0;
  AResult.IntValue:=0;
- AResult.LineNumber:=LineNumber;
+
+ //AResult.LineNumber:= LineNumber;
+ //AResult.LineColumn:= CurrentColumn;
+
+ aresult.SetLineColumn(LineNumber, CurrentColumn);
+
+ // no file info - get it from besen class - current file.
+
  AResult.LineEnd:=false;
  AResult.WasLineEnd:=LastWasLineEnd;
  AResult.OldChar:=CurrentChar;
@@ -617,14 +783,19 @@ begin
  AResult.OldPosition:=Position;
  AResult.OldCharEOF:=CharEOF;
  AResult.OldTokenEOF:=TokenEOF;
+
  LastWasLineEnd:=false;
  AResult.TokenType:=ltUNKNOWN;
+
  while true do begin
+
   if CharEOF then begin
    TokenEOF:=true;
    AResult.TokenType:=ltEOF;
    break;
   end else begin
+
+   // that is this? handles UTF8 BOM?
    while BESENUnicodeIsParserWhiteSpace(CurrentChar) do begin
     case CurrentChar of
      0:begin
@@ -651,12 +822,16 @@ begin
      end;
     end;
    end;
+
    if CharEOF then begin
     AResult.TokenType:=ltEOF;
     TokenEOF:=true;
     break;
    end else begin
-    AResult.LineNumber:=LineNumber;
+
+    // got a parsable token.
+    aresult.SetLineColumn(LineNumber, LineColumn() );
+
     AResult.OldChar:=CurrentChar;
     AResult.OldLineNumber:=LineNumber;
     AResult.OldPosition:=Position;
@@ -1383,6 +1558,11 @@ begin
       end;
      end;
     end;
+
+    // this is tested and seems to reasonably work, i get proper tokens at proper lines and columns.
+
+    // OutputDebugStringW(pwidechar( wideformat( 'Token %s at %d:%d name: name "%s" ', [ LexerTypeTostring( AResult.TokenType ), aresult.GLineNumber, aresult.GLineColumn, AResult.Name ] ) ));
+
    end;
    break;
   end;
@@ -1405,6 +1585,17 @@ begin
 end;
 
 function TBESENLexer.CurrentColumn: integer;
+begin
+
+
+ result:= Position - fLinePosition;
+
+    if (result > 1000) then
+		result:= Position - fLinePosition;
+
+end;
+
+function TBESENLexer.LineColumn(): integer;
 begin
 
 	result:= Position - fLinePosition;
@@ -1467,3 +1658,4 @@ initialization
 finalization
  DoneBESEN;
 end.
+

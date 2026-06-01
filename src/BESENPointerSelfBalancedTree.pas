@@ -52,6 +52,13 @@ type PBESENPointerSelfBalancedTreeValue=^TBESENPointerSelfBalancedTreeValue;
 
      TBESENPointerSelfBalancedTreeKeys=array of pointer;
 
+     {
+		Problem / TODO:
+		Every dependency operation is O(log n) (tree insert/remove)
+		Traversal during Mark walks a tree structure (cache-unfriendly)
+		Lots of pointer chasing → bad CPU cache usage
+     }
+
      TBESENPointerSelfBalancedTree=class
       protected
        procedure Skew(OldParent:PBESENPointerSelfBalancedTreeNode);

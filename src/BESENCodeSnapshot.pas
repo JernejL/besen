@@ -60,13 +60,19 @@ begin
 end;
 
 function TBESENCodeSnapshot.LoadFromStream(const Stream:TStream):TBESENASTNode;
-type TLoadedKeyManagerID=packed record
+
+type
+     TLoadedKeyManagerID=packed record
       ID:integer;
       Key:TBESENString;
      end;
      TLoadedKeyManagerIDs=array of TLoadedKeyManagerID;
+
 var VisitedNodes:TBESENInt64SelfBalancedTree;
     LoadedKeyManagerIDs:TLoadedKeyManagerIDs;
+
+    CodeLocation: TBESENLocation;
+
  procedure BESENThrowStream(const s:string);
  begin
   raise EStreamError.Create(s);
@@ -111,7 +117,7 @@ var VisitedNodes:TBESENInt64SelfBalancedTree;
   end;
  end;
  function ReadNode:TBESENASTNode;
- var Counter,Target,LineNumber,i,j,k:integer;
+ var Counter,Target,i,j,k:integer;
      VisitNodeValue:TBESENInt64SelfBalancedTreeValue;
      v:PBESENValue;
      Ptr:int64;
@@ -126,7 +132,13 @@ var VisitedNodes:TBESENInt64SelfBalancedTree;
    VisitedNodes.Insert(Ptr,VisitNodeValue);
    TBESENASTNode(result).NodeType:=NodeType;
    TBESENASTNode(result).Target:=Target;
-   TBESENASTNode(result).Location.LineNumber:=LineNumber;
+
+   // TODO: bero forgot code file name here?
+   // write codelocation (see also comment "read codelocation")
+   // TBESENASTNode(result).CodeLocation.SetInfo(CodeLocation.LineNumber, CodeLocation.ColumnNumber, -1);
+
+   TBESENASTNode(result).CodeLocation.copy( CodeLocation );
+
    TBESENASTNode(result).CountTrashNodes:=ReadInt32;
    SetLength(TBESENASTNode(result).TrashNodes,TBESENASTNode(result).CountTrashNodes);
    for Counter:=0 to TBESENASTNode(result).CountTrashNodes-1 do begin
@@ -141,9 +153,13 @@ var VisitedNodes:TBESENInt64SelfBalancedTree;
     if VisitedNodes.Find(Ptr,VisitNodeValue) then begin
      result:=VisitNodeValue.p;
     end else begin
+
+     // TODO: this could be NOT hardcoded.
      NodeType:=ReadByte;
      Target:=ReadInt32;
-     LineNumber:=ReadInt32;
+
+     stream.Read(CodeLocation, sizeof(CodeLocation)); // read codelocation (see also comment "write codelocation") - line 902
+
      case NodeType of
       bntNONE:begin
        result:=CreateNode(TBESENASTNode);
@@ -256,7 +272,9 @@ var VisitedNodes:TBESENInt64SelfBalancedTree;
         Code.CountLocations:=ReadInt32;
         SetLength(Code.Locations,Code.CountLocations);
         for Counter:=0 to Code.CountLocations-1 do begin
-         Code.Locations[Counter].LineNumber:=ReadInt32;
+         Code.Locations[Counter].iLineNumber:=ReadInt32;   // why like this this? see line 1001 for other part of this.
+         Code.Locations[Counter].iColumnNumber:= ReadInt32;
+         Code.Locations[Counter].iFilename:= ReadInt32;
         end;
         Code.CountVariables:=ReadInt32;
         SetLength(Code.Variables,Code.CountVariables);
@@ -884,7 +902,9 @@ var VisitedNodes:TBESENPointerSelfBalancedTree;
    VisitedNodes.Insert(ToVisit,VisitNodeValue);
    WriteByte(ToVisit.NodeType);
    WriteInt32(TBESENASTNode(ToVisit).Target);
-   WriteInt32(TBESENASTNode(ToVisit).Location.LineNumber);
+
+   stream.Write(TBESENASTNode(ToVisit).CodeLocation, sizeof(TBESENASTNode(ToVisit).CodeLocation) ); // todo: was    WriteInt32(TBESENASTNode(ToVisit).Location.LineNumber); 
+
    WriteInt32(TBESENASTNode(ToVisit).CountTrashNodes);
    for Counter:=0 to TBESENASTNode(ToVisit).CountTrashNodes-1 do begin
     Visit(TBESENASTNode(ToVisit).TrashNodes[Counter]);
@@ -978,7 +998,9 @@ var VisitedNodes:TBESENPointerSelfBalancedTree;
       end;
       WriteInt32(Code.CountLocations);
       for Counter:=0 to Code.CountLocations-1 do begin
-       WriteInt32(Code.Locations[Counter].LineNumber);
+       WriteInt32(Code.Locations[Counter].iLineNumber);
+       WriteInt32(Code.Locations[Counter].iColumnNumber);
+       WriteInt32(Code.Locations[Counter].iFilename);
       end;
       WriteInt32(Code.CountVariables);
       for Counter:=0 to Code.CountVariables-1 do begin

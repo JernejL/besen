@@ -56,7 +56,8 @@ type TBESENParserLabelSet=class(TBESENCollectorObject)
        Name:TBESENString;
        LabelSet:TBESENParserLabelSet;
        Node:TBESENASTNode;
-       LineNumber:integer;
+       LineNumber:integer; // why is this here?
+       Columnnumber: integer;
        Index:integer;
        constructor Create(AInstance:TObject); overload; override;
        destructor Destroy; override;
@@ -142,10 +143,12 @@ var CurrentToken:TBESENLexerToken;
  begin
 
   // todo: file index
-  TBESEN(Instance).LineNumber:=Lexer.LineNumber;
-  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-  TBESEN(Instance).CurrentToken:= BESENTokenStrings[currenttoken.TokenType];
+
+  TBESEN(Instance).LineNumber:= lexer.LineNumber;
+  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn;
+  // parser does not override file info in TBESEN(Instance).
+
+  TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[currenttoken.TokenType];
 
   raise EBESENSyntaxError.CreateUTF16(Msg);
 
@@ -211,10 +214,13 @@ var CurrentToken:TBESENLexerToken;
     l:=Labels;
     while assigned(l) do begin
      if l.Name=Name then begin
+
         TBESEN(Instance).LineNumber:=Lexer.LineNumber;
 		TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-		TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-		TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+	    // parser does not override file info in TBESEN(Instance).
+
+		TBESEN(Instance).CurrentParserLine:= lexer.CurrentLine();
+		TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[CurrentToken.TokenType];
 
       raise EBESENSyntaxError.CreateUTF16('Duplicate label "'+Name+'"');
      end;
@@ -225,7 +231,10 @@ var CurrentToken:TBESENLexerToken;
    result.Name:=Name;
    result.LabelSet:=LabelSetCurrent;
    result.Node:=Node;
-   result.LineNumber:=Lexer.LineNumber;
+
+   result.LineNumber:=		Lexer.LineNumber; // careful!!
+   result.ColumnNumber:=	lexer.CurrentColumn;
+
    result.Next:=Labels;
    result.Index:=LabelList.Add(result);
    Labels:=result;
@@ -260,10 +269,11 @@ var CurrentToken:TBESENLexerToken;
       if length(Name)=0 then begin
        continue;
       end;
-      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
-	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
+	  TBESEN(Instance).LineNumber:= lexer.LineNumber;
+      TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
+
+	  TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[CurrentToken.TokenType];
 
       raise EBESENSyntaxError.CreateUTF16('Label name "'+Name+'" not suitable for continue');
      end;
@@ -273,24 +283,29 @@ var CurrentToken:TBESENLexerToken;
     l:=l.Next;
    end;
    if length(Name)<>0 then begin
-      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
-	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
+ 	  TBESEN(Instance).LineNumber:= lexer.LineNumber;
+    TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn;
+
+	  TBESEN(Instance).CurrentParserLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[CurrentToken.TokenType];
 
     raise EBESENSyntaxError.CreateUTF16('Label name "'+Name+'" not defined, or not reachable');
    end else if Continuable then begin
-      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
-	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+
+      TBESEN(Instance).LineNumber:= lexer.LineNumber;
+      TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn;
+
+	  TBESEN(Instance).CurrentParserLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[CurrentToken.TokenType];
 
     raise EBESENSyntaxError.Create('Continue statement not within a loop');
    end else begin
-      TBESEN(Instance).LineNumber:=Lexer.LineNumber;
-	  TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn();
-	  TBESEN(Instance).CurrentLine:= lexer.CurrentLine();
-	  TBESEN(Instance).CurrentToken:= BESENTokenStrings[CurrentToken.TokenType];
+      TBESEN(Instance).LineNumber:= lexer.LineNumber;
+      TBESEN(Instance).ColumnNumber:= lexer.CurrentColumn;
+
+	  TBESEN(Instance).CurrentParserLine:= lexer.CurrentLine();
+	  TBESEN(Instance).CurrentParserToken:= BESENTokenStrings[CurrentToken.TokenType];
 
     raise EBESENSyntaxError.Create('Break statement not within a loop or switch');
    end;
@@ -368,12 +383,22 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeIdentifier.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
 
-   if result.Location.LineNumber>0 then begin
-    TBESEN(Instance).LineNumber:=result.Location.LineNumber;
-    TBESEN(Instance).CurrentFile:=result.Location.Filename;
+   //result.CodeLocation.LineNumber:= CurrentToken.LineNumber;
+   //result.CodeLocation.ColumnNumber:= CurrentToken.LineColumn;
+
+   TBESEN(Instance).codelocation_SetInfo(CurrentToken.GLineNumber, CurrentToken.GLineColumn, TBESEN(Instance).CurrentFile, 'parser'); // was FilenameSet
+
+   // TBESEN(Instance).LineNumber:= CurrentToken.GLineNumber;
+   // TBESEN(Instance).ColumnNumber:= CurrentToken.GLineColumn;
+
+   {
+   if result.CodeLocation.LineNumber > 0 then begin
+
+    TBESEN(Instance).SetLineLocation( result.CodeLocation );
+
    end;
+   }
 
    if CurrentToken.TokenType=lttIDENTIFIER then begin
     result.Name:=CurrentToken.Name;
@@ -395,7 +420,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeIdentifier.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, CurrentToken.GLineColumn, TBESEN(Instance).CurrentFile);// was FilenameSet
+
    if CurrentToken.TokenType in BESENLexerKeywordsTokens then begin
     result.Name:=BESENTokenStrings[CurrentToken.TokenType];
    end else if CurrentToken.TokenType=lttIDENTIFIER then begin
@@ -454,7 +481,9 @@ var CurrentToken:TBESENLexerToken;
    result:=nil;
    try
     result:=TBESENASTNodeReturnStatement.Create(Instance);
-    result.Location.LineNumber:=Lexer.LineNumber;
+
+    result.CodeLocation.SetInfo(lexer.LineNumber, lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
     if not NextIsSemicolon then begin
      result.Expression:=ParseExpression(true);
     end;
@@ -477,7 +506,8 @@ var CurrentToken:TBESENLexerToken;
    IsInFunction:=true;
    try
     result:=TBESENASTNodeFunctionLiteral.Create(Instance);
-    result.Location.LineNumber:=CurrentToken.LineNumber;
+
+    result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
 
     if WithFunction then begin
      SkipToken(ltkFUNCTION);
@@ -526,7 +556,9 @@ var CurrentToken:TBESENLexerToken;
      SkipToken(ltoOPENBRACE);
      if IsFunction then begin
       IsFunction:=false;
-      Lexer.LineNumber:=1;
+      Lexer.LineNumber:= 1;
+      //Lexer.CurrentColumn:= 1;
+
      end;
      OldToken:=CurrentToken;
      result.Body.IsStrict:=TBESEN(Instance).IsStrict;
@@ -573,7 +605,8 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeFunctionDeclaration.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    Literal:=ParseFunctionLiteral(true,true);
    result.Container:=Literal.Container;
   except
@@ -588,7 +621,8 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeFunctionExpression.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    Literal:=ParseFunctionLiteral(WithFunction,WithName);
    result.Container:=Literal.Container;
   except
@@ -631,7 +665,9 @@ var CurrentToken:TBESENLexerToken;
   try
    SkipToken(ltoOPENBRACE);
    result:=TBESENASTNodeBlockStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    result.Statements:=ParseStatementList(false);
    SkipToken(ltoCLOSEBRACE);
   except
@@ -646,7 +682,7 @@ var CurrentToken:TBESENLexerToken;
   try
    SkipToken(ltkDEBUGGER);
    result:=TBESENASTNodeDebuggerStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    ParseOptionalSemicolon;
   except
    BESENFreeAndNil(result);
@@ -660,7 +696,7 @@ var CurrentToken:TBESENLexerToken;
   try
    SkipToken(ltkBREAK);
    result:=TBESENASTNodeBreakStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    if NextIsSemicolon then begin
     result.Target:=LabelTargetLookup('',false);
    end else begin
@@ -689,7 +725,7 @@ var CurrentToken:TBESENLexerToken;
   try
    SkipToken(ltkCONTINUE);
    result:=TBESENASTNodeContinueStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    if NextIsSemicolon then begin
     result.Target:=LabelTargetLookup('',true);
    end else begin
@@ -724,7 +760,8 @@ var CurrentToken:TBESENLexerToken;
       SkipToken(ltoCOMMA);
       Left:=result;
       result:=TBESENASTNodeBinaryCommaExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
       TBESENASTNodeBinaryCommaExpression(result).LeftExpression:=Left;
       TBESENASTNodeBinaryCommaExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
      end;
@@ -745,7 +782,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeDoStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    LabelSet:=LabelSetCurrent;
    LabelSet.Continuable:=true;
    LabelEnter('',result);
@@ -767,7 +804,8 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeRegExpLiteral.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    if CurrentToken.TokenType in [ltoDIVIDE,ltoDIVIDEASSIGNMENT] then begin
     Lexer.Restore(CurrentToken);
     if not Lexer.ParseRegExpLiteral(CurrentToken,result.Source,result.Flags) then begin
@@ -788,7 +826,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeStringLiteral.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    if CurrentToken.TokenType=lttSTRING then begin
     result.Value:=CurrentToken.StringValue;
    end else begin
@@ -806,7 +846,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeNumberLiteral.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
    case CurrentToken.TokenType of
     lttINTEGER:begin
      result.Value:=CurrentToken.IntValue;
@@ -955,7 +997,9 @@ var CurrentToken:TBESENLexerToken;
      end;
      result:=TBESENASTNodeObjectLiteralProperty.Create(Instance);
      result.PropertyType:=banolptDATA;
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      result.Name:=Key;
      SkipToken(ltoCOLON);
      result.Value:=ParseAssignmentExpression(true);
@@ -976,7 +1020,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeObjectLiteral.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
    result.Properties:=nil;
    Count:=0;
    SkipToken(ltoOPENBRACE);
@@ -1013,7 +1059,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeArrayLiteral.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
    SkipToken(ltoOPENSQUARE);
    result.Elements:=nil;
    Count:=0;
@@ -1055,23 +1103,31 @@ var CurrentToken:TBESENLexerToken;
    case CurrentToken.TokenType of
     ltkTHIS:begin
      result:=TBESENASTNodeThisLiteral.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltkTHIS);
     end;
     ltkNULL:begin
      result:=TBESENASTNodeNullLiteral.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltkNULL);
     end;
     ltkTRUE:begin
      result:=TBESENASTNodeBooleanLiteral.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeBooleanLiteral(result).Value:=true;
      SkipToken(ltkTRUE);
     end;
     ltkFALSE:begin
      result:=TBESENASTNodeBooleanLiteral.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeBooleanLiteral(result).Value:=false;
      SkipToken(ltkFALSE);
     end;
@@ -1152,7 +1208,9 @@ var CurrentToken:TBESENLexerToken;
     ltkNEW:begin
      SkipToken(ltkNEW);
      result:=TBESENASTNodeNewExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeNewExpression(result).TheFunction:=ParseLeftHandSideAndMemberExpression(false);
      if CurrentToken.TokenType=ltoOPENPAREN then begin
       TBESENASTNodeNewExpression(result).Arguments:=ParseArgumentList;
@@ -1171,13 +1229,17 @@ var CurrentToken:TBESENLexerToken;
     if IsLeftHandSideExpression and (CurrentToken.TokenType=ltoOPENPAREN) then begin
      Expression:=result;
      result:=TBESENASTNodeCallExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeCallExpression(result).TheFunction:=Expression;
      TBESENASTNodeCallExpression(result).Arguments:=ParseArgumentList;
     end else if CurrentToken.TokenType=ltoOPENSQUARE then begin
      Expression:=result;
      result:=TBESENASTNodePropertyExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodePropertyExpression(result).Dot:=false;
      TBESENASTNodePropertyExpression(result).LeftExpression:=Expression;
      SkipToken(ltoOPENSQUARE);
@@ -1195,7 +1257,9 @@ var CurrentToken:TBESENLexerToken;
     end else if CurrentToken.TokenType=ltoDOT then begin
      Expression:=result;
      result:=TBESENASTNodePropertyExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodePropertyExpression(result).Dot:=true;
      TBESENASTNodePropertyExpression(result).LeftExpression:=Expression;
      SkipToken(ltoDOT);
@@ -1226,7 +1290,9 @@ var CurrentToken:TBESENLexerToken;
      end;
      Expression:=result;
      result:=TBESENASTNodePostfixIncExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoPLUSPLUS);
      TBESENASTNodePostfixIncExpression(result).SubExpression:=Expression;
     end;
@@ -1236,7 +1302,9 @@ var CurrentToken:TBESENLexerToken;
      end;       
      Expression:=result;
      result:=TBESENASTNodePostfixDecExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoMINUSMINUS);
      TBESENASTNodePostfixDecExpression(result).SubExpression:=Expression;
     end;
@@ -1254,55 +1322,73 @@ var CurrentToken:TBESENLexerToken;
    case CurrentToken.TokenType of
     ltoPLUSPLUS:begin
      result:=TBESENASTNodePrefixIncExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoPLUSPLUS);
      TBESENASTNodePrefixIncExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltoMINUSMINUS:begin
      result:=TBESENASTNodePrefixDecExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoMINUSMINUS);
      TBESENASTNodePrefixdecExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltoPLUS:begin
      result:=TBESENASTNodeUnaryPlusExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoPLUS);
      TBESENASTNodeUnaryPlusExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltoMINUS:begin
      result:=TBESENASTNodeUnaryMinusExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoMINUS);
      TBESENASTNodeUnaryMinusExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltoBITWISENOT:begin
      result:=TBESENASTNodeUnaryBitwiseNotExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoBITWISENOT);
      TBESENASTNodeUnaryBitwiseNotExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltoLOGICALNOT:begin
      result:=TBESENASTNodeUnaryLogicalNotExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltoLOGICALNOT);
      TBESENASTNodeUnaryLogicalNotExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltkVOID:begin
      result:=TBESENASTNodeUnaryVoidExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltkVOID);
      TBESENASTNodeUnaryVoidExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltkTYPEOF:begin
      result:=TBESENASTNodeUnaryTypeOfExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltkTYPEOF);
      TBESENASTNodeUnaryTypeOfExpression(result).SubExpression:=ParseUnaryExpression;
     end;
     ltkDELETE:begin
      result:=TBESENASTNodeDeleteExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      SkipToken(ltkDELETE);
      TBESENASTNodeDeleteExpression(result).SubExpression:=ParseUnaryExpression;
     end;
@@ -1327,7 +1413,9 @@ var CurrentToken:TBESENLexerToken;
      ltoDIVIDE:begin
       Left:=result;
       result:=TBESENASTNodeBinaryDivideExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryDivideExpression(result).LeftExpression:=Left;
       SkipToken(ltoDIVIDE);
       TBESENASTNodeBinaryDivideExpression(result).RightExpression:=ParseUnaryExpression;
@@ -1335,7 +1423,9 @@ var CurrentToken:TBESENLexerToken;
      ltoMODULO:begin
       Left:=result;
       result:=TBESENASTNodeBinaryModuloExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryModuloExpression(result).LeftExpression:=Left;
       SkipToken(ltoMODULO);
       TBESENASTNodeBinaryModuloExpression(result).RightExpression:=ParseUnaryExpression;
@@ -1343,7 +1433,9 @@ var CurrentToken:TBESENLexerToken;
      ltoMULTIPLY:begin
       Left:=result;
       result:=TBESENASTNodeBinaryMultiplyExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryMultiplyExpression(result).LeftExpression:=Left;
       SkipToken(ltoMULTIPLY);
       TBESENASTNodeBinaryMultiplyExpression(result).RightExpression:=ParseUnaryExpression;
@@ -1370,7 +1462,9 @@ var CurrentToken:TBESENLexerToken;
      ltoPLUS:begin
       Left:=result;
       result:=TBESENASTNodeBinaryPlusExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryPlusExpression(result).LeftExpression:=Left;
       SkipToken(ltoPLUS);
       TBESENASTNodeBinaryPlusExpression(result).RightExpression:=ParseMultiplyExpression;
@@ -1378,7 +1472,9 @@ var CurrentToken:TBESENLexerToken;
      ltoMINUS:begin
       Left:=result;
       result:=TBESENASTNodeBinaryMinusExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryMinusExpression(result).LeftExpression:=Left;
       SkipToken(ltoMINUS);
       TBESENASTNodeBinaryMinusExpression(result).RightExpression:=ParseMultiplyExpression;
@@ -1405,7 +1501,9 @@ var CurrentToken:TBESENLexerToken;
      ltoSHIFTLEFT:begin
       Left:=result;
       result:=TBESENASTNodeBinaryShiftLeftExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryShiftLeftExpression(result).LeftExpression:=Left;
       SkipToken(ltoSHIFTLEFT);
       TBESENASTNodeBinaryShiftLeftExpression(result).RightExpression:=ParseAdditionExpression;
@@ -1413,7 +1511,9 @@ var CurrentToken:TBESENLexerToken;
      ltoSHIFTRIGHT:begin
       Left:=result;
       result:=TBESENASTNodeBinaryShiftRightExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryShiftRightExpression(result).LeftExpression:=Left;
       SkipToken(ltoSHIFTRIGHT);
       TBESENASTNodeBinaryShiftRightExpression(result).RightExpression:=ParseAdditionExpression;
@@ -1421,7 +1521,9 @@ var CurrentToken:TBESENLexerToken;
      ltoSHIFTRIGHTUNSIGNED:begin
       Left:=result;
       result:=TBESENASTNodeBinaryShiftRightUnsignedExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryShiftRightUnsignedExpression(result).LeftExpression:=Left;
       SkipToken(ltoSHIFTRIGHTUNSIGNED);
       TBESENASTNodeBinaryShiftRightUnsignedExpression(result).RightExpression:=ParseAdditionExpression;
@@ -1448,7 +1550,9 @@ var CurrentToken:TBESENLexerToken;
      ltoGREATERTHAN:begin
       Left:=result;
       result:=TBESENASTNodeBinaryGreaterThanExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryGreaterThanExpression(result).LeftExpression:=Left;
       SkipToken(ltoGREATERTHAN);
       TBESENASTNodeBinaryGreaterThanExpression(result).RightExpression:=ParseShiftExpression;
@@ -1456,7 +1560,9 @@ var CurrentToken:TBESENLexerToken;
      ltoGREATERTHANOREQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryGreaterThanOrEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryGreaterThanOrEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoGREATERTHANOREQUAL);
       TBESENASTNodeBinaryGreaterThanOrEqualExpression(result).RightExpression:=ParseShiftExpression;
@@ -1464,7 +1570,9 @@ var CurrentToken:TBESENLexerToken;
      ltoLESSTHAN:begin
       Left:=result;
       result:=TBESENASTNodeBinaryLessThanExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryLessThanExpression(result).LeftExpression:=Left;
       SkipToken(ltoLESSTHAN);
       TBESENASTNodeBinaryLessThanExpression(result).RightExpression:=ParseShiftExpression;
@@ -1472,7 +1580,9 @@ var CurrentToken:TBESENLexerToken;
      ltoLESSTHANOREQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryLessThanOrEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryLessThanOrEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoLESSTHANOREQUAL);
       TBESENASTNodeBinaryLessThanOrEqualExpression(result).RightExpression:=ParseShiftExpression;
@@ -1480,7 +1590,9 @@ var CurrentToken:TBESENLexerToken;
      ltkINSTANCEOF:begin
       Left:=result;
       result:=TBESENASTNodeBinaryInstanceOfExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryInstanceOfExpression(result).LeftExpression:=Left;
       SkipToken(ltkINSTANCEOF);
       TBESENASTNodeBinaryInstanceOfExpression(result).RightExpression:=ParseShiftExpression;
@@ -1489,7 +1601,9 @@ var CurrentToken:TBESENLexerToken;
       if InFlag then begin
        Left:=result;
        result:=TBESENASTNodeBinaryInExpression.Create(Instance);
-       result.Location.LineNumber:=CurrentToken.LineNumber;
+       result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
        TBESENASTNodeBinaryInExpression(result).LeftExpression:=Left;
        SkipToken(ltkIN);
        TBESENASTNodeBinaryInExpression(result).RightExpression:=ParseShiftExpression;
@@ -1519,7 +1633,9 @@ var CurrentToken:TBESENLexerToken;
      ltoEQUALEQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryEqualEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryEqualEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoEQUALEQUAL);
       TBESENASTNodeBinaryEqualEqualExpression(result).RightExpression:=ParseRelationalExpression(InFlag);
@@ -1527,7 +1643,9 @@ var CurrentToken:TBESENLexerToken;
      ltoEQUALEQUALEQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryEqualEqualEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryEqualEqualEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoEQUALEQUALEQUAL);
       TBESENASTNodeBinaryEqualEqualEqualExpression(result).RightExpression:=ParseRelationalExpression(InFlag);
@@ -1535,7 +1653,9 @@ var CurrentToken:TBESENLexerToken;
      ltoNOTEQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryNotEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryNotEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoNOTEQUAL);
       TBESENASTNodeBinaryNotEqualExpression(result).RightExpression:=ParseRelationalExpression(InFlag);
@@ -1543,7 +1663,9 @@ var CurrentToken:TBESENLexerToken;
      ltoNOTEQUALEQUAL:begin
       Left:=result;
       result:=TBESENASTNodeBinaryNotEqualEqualExpression.Create(Instance);
-      result.Location.LineNumber:=CurrentToken.LineNumber;
+      result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
       TBESENASTNodeBinaryNotEqualEqualExpression(result).LeftExpression:=Left;
       SkipToken(ltoNOTEQUALEQUAL);
       TBESENASTNodeBinaryNotEqualEqualExpression(result).RightExpression:=ParseRelationalExpression(InFlag);
@@ -1569,7 +1691,9 @@ var CurrentToken:TBESENLexerToken;
     if CurrentToken.TokenType=ltoBITWISEAND then begin
      Left:=result;
      result:=TBESENASTNodeBinaryBitwiseAndExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeBinaryBitwiseAndExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEAND);
      TBESENASTNodeBinaryBitwiseAndExpression(result).RightExpression:=ParseEqualityExpression(InFlag);
@@ -1593,7 +1717,9 @@ var CurrentToken:TBESENLexerToken;
     if CurrentToken.TokenType=ltoBITWISEXOR then begin
      Left:=result;
      result:=TBESENASTNodeBinaryBitwiseXorExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeBinaryBitwiseXorExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEXOR);
      TBESENASTNodeBinaryBitwiseXorExpression(result).RightExpression:=ParseBitwiseAndExpression(InFlag);
@@ -1617,7 +1743,9 @@ var CurrentToken:TBESENLexerToken;
     if CurrentToken.TokenType=ltoBITWISEOR then begin
      Left:=result;
      result:=TBESENASTNodeBinaryBitwiseOrExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeBinaryBitwiseOrExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEOR);
      TBESENASTNodeBinaryBitwiseOrExpression(result).RightExpression:=ParseBitwiseXorExpression(InFlag);
@@ -1641,7 +1769,9 @@ var CurrentToken:TBESENLexerToken;
     if CurrentToken.TokenType=ltoLOGICALAND then begin
      Left:=result;
      result:=TBESENASTNodeLogicalAndExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeLogicalAndExpression(result).LeftExpression:=Left;
      SkipToken(ltoLOGICALAND);
      TBESENASTNodeLogicalAndExpression(result).RightExpression:=ParseBitwiseOrExpression(InFlag);
@@ -1665,7 +1795,9 @@ var CurrentToken:TBESENLexerToken;
     if CurrentToken.TokenType=ltoLOGICALOR then begin
      Left:=result;
      result:=TBESENASTNodeLogicalOrExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeLogicalOrExpression(result).LeftExpression:=Left;
      SkipToken(ltoLOGICALOR);
      TBESENASTNodeLogicalOrExpression(result).RightExpression:=ParseLogicalAndExpression(InFlag);
@@ -1688,7 +1820,9 @@ var CurrentToken:TBESENLexerToken;
    if CurrentToken.TokenType=ltoCONDITIONAL then begin
     Expression:=result;
     result:=TBESENASTNodeConditionalExpression.Create(Instance);
-    result.Location.LineNumber:=CurrentToken.LineNumber;
+    result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
     TBESENASTNodeConditionalExpression(result).Expression:=Expression;
     SkipToken(ltoCONDITIONAL);
     TBESENASTNodeConditionalExpression(result).TrueExpression:=ParseAssignmentExpression(InFlag);
@@ -1712,7 +1846,9 @@ var CurrentToken:TBESENLexerToken;
     ltoASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentExpression(result).LeftExpression:=Left;
      SkipToken(ltoASSIGNMENT);
      TBESENASTNodeAssignmentExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1720,7 +1856,9 @@ var CurrentToken:TBESENLexerToken;
     ltoMULTIPLYASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentMultiplyExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentMultiplyExpression(result).LeftExpression:=Left;
      SkipToken(ltoMULTIPLYASSIGNMENT);
      TBESENASTNodeAssignmentMultiplyExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1728,7 +1866,9 @@ var CurrentToken:TBESENLexerToken;
     ltoDIVIDEASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentDivideExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentDivideExpression(result).LeftExpression:=Left;
      SkipToken(ltoDIVIDEASSIGNMENT);
      TBESENASTNodeAssignmentDivideExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1736,7 +1876,9 @@ var CurrentToken:TBESENLexerToken;
     ltoMODULOASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentModuloExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentModuloExpression(result).LeftExpression:=Left;
      SkipToken(ltoMODULOASSIGNMENT);
      TBESENASTNodeAssignmentModuloExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1744,7 +1886,9 @@ var CurrentToken:TBESENLexerToken;
     ltoPLUSASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentPlusExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentPlusExpression(result).LeftExpression:=Left;
      SkipToken(ltoPLUSASSIGNMENT);
      TBESENASTNodeAssignmentPlusExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1752,7 +1896,9 @@ var CurrentToken:TBESENLexerToken;
     ltoMINUSASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentMinusExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentMinusExpression(result).LeftExpression:=Left;
      SkipToken(ltoMINUSASSIGNMENT);
      TBESENASTNodeAssignmentMinusExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1760,7 +1906,9 @@ var CurrentToken:TBESENLexerToken;
     ltoSHIFTLEFTASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentShiftLeftExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentShiftLeftExpression(result).LeftExpression:=Left;
      SkipToken(ltoSHIFTLEFTASSIGNMENT);
      TBESENASTNodeAssignmentShiftLeftExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1768,7 +1916,9 @@ var CurrentToken:TBESENLexerToken;
     ltoSHIFTRIGHTASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentShiftRightExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentShiftRightExpression(result).LeftExpression:=Left;
      SkipToken(ltoSHIFTRIGHTASSIGNMENT);
      TBESENASTNodeAssignmentShiftRightExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1776,7 +1926,9 @@ var CurrentToken:TBESENLexerToken;
     ltoSHIFTRIGHTUNSIGNEDASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentShiftRightUnsignedExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentShiftRightUnsignedExpression(result).LeftExpression:=Left;
      SkipToken(ltoSHIFTRIGHTUNSIGNEDASSIGNMENT);
      TBESENASTNodeAssignmentShiftRightUnsignedExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1784,7 +1936,9 @@ var CurrentToken:TBESENLexerToken;
     ltoBITWISEANDASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentBitwiseAndExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentBitwiseAndExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEANDASSIGNMENT);
      TBESENASTNodeAssignmentBitwiseAndExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1792,7 +1946,9 @@ var CurrentToken:TBESENLexerToken;
     ltoBITWISEXORASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentBitwiseXorExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentBitwiseXorExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEXORASSIGNMENT);
      TBESENASTNodeAssignmentBitwiseXorExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1800,7 +1956,9 @@ var CurrentToken:TBESENLexerToken;
     ltoBITWISEORASSIGNMENT:begin
      Left:=result;
      result:=TBESENASTNodeAssignmentBitwiseOrExpression.Create(Instance);
-     result.Location.LineNumber:=CurrentToken.LineNumber;
+     result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
      TBESENASTNodeAssignmentBitwiseOrExpression(result).LeftExpression:=Left;
      SkipToken(ltoBITWISEORASSIGNMENT);
      TBESENASTNodeAssignmentBitwiseOrExpression(result).RightExpression:=ParseAssignmentExpression(InFlag);
@@ -1817,7 +1975,9 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeVariableDeclaration.Create(Instance);
-   result.Location.LineNumber:=CurrentToken.LineNumber;
+   result.CodeLocation.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
+
    result.Identifier:=ParseIdentifier(not TBESEN(Instance).IsStrict);
    if CurrentToken.TokenType=ltoASSIGNMENT then begin
     SkipToken(ltoASSIGNMENT);
@@ -1831,14 +1991,14 @@ var CurrentToken:TBESENLexerToken;
 
  function ParseForStatement:TBESENASTNodeStatement;
  var OldInForHeader:boolean;
-     State,i,ln:integer;
+     State,i:integer;
      Declaration:TBESENASTNodeVariableDeclaration;
      Initial,Expression,Variable:TBESENASTNodeExpression;
      VariableExpression:TBESENASTNodeVariableExpression;
      LabelSet:TBESENParserLabelSet;
      ALabel:TBESENParserLabel;
  begin
-  ln:=Lexer.LineNumber;
+  //ln:=Lexer.LineNumber;
   result:=nil;
   Initial:=nil;
   Declaration:=nil;
@@ -1948,7 +2108,7 @@ var CurrentToken:TBESENLexerToken;
    end else begin
     result:=TBESENASTNodeEmptyStatement.Create(Instance);
    end;
-   result.Location.LineNumber:=ln;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    LabelLeave;
   except
    BESENFreeAndNil(Initial);
@@ -1965,7 +2125,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeIfStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkIF);
    SkipToken(ltoOPENPAREN);
    result.Expression:=ParseExpression(true);
@@ -1989,7 +2149,7 @@ var CurrentToken:TBESENLexerToken;
     raise EBESENSyntaxError.Create('Return outside a function');
    end;
    result:=TBESENASTNodeReturnStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkRETURN);
    if not NextIsSemicolon then begin
     if CurrentToken.WasLineEnd then begin
@@ -2009,7 +2169,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeThrowStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkTHROW);
    if CurrentToken.WasLineEnd then begin
     AddError('Illegal line terminator after throw');
@@ -2027,7 +2187,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeTryStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkTRY);
 
    result.CatchBlock:=nil;
@@ -2067,7 +2227,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeSwitchStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkSWITCH);
 
    LabelSet:=LabelSetCurrent;
@@ -2089,7 +2249,8 @@ var CurrentToken:TBESENLexerToken;
      SetLength(result.CaseStatements,CaseStatements+256);
     end;
     result.CaseStatements[CaseStatements]:=TBESENASTNodeCaseStatement.Create(Instance);
-    result.CaseStatements[CaseStatements].Location.LineNumber:=Lexer.LineNumber;
+    result.CaseStatements[CaseStatements].CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
     CaseStatement:=result.CaseStatements[CaseStatements];
     inc(CaseStatements);
 
@@ -2127,7 +2288,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeVariableStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkVAR);
 
    result.Declarations:=niL;
@@ -2157,7 +2318,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeWhileStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    LabelSet:=LabelSetCurrent;
    LabelSet.Continuable:=true;
    LabelEnter('',result);
@@ -2184,7 +2345,7 @@ var CurrentToken:TBESENLexerToken;
     AddError('WITH isn''t allowed in strict mode');
    end;
    result:=TBESENASTNodeWithStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    SkipToken(ltkWITH);
 
    SkipToken(ltoOPENPAREN);
@@ -2201,10 +2362,10 @@ var CurrentToken:TBESENLexerToken;
  function ParseExpressionStatement:TBESENASTNodeStatement;
  var Expression:TBESENASTNodeExpression;
      LabelSet,OldLabelSet:TBESENParserLabelSet;
-     ln,LabelCount:integer;
+     LabelCount:integer;
      OldToken:TBESENLexerToken;
  begin
-  ln:=Lexer.LineNumber;
+
   result:=nil;
   Expression:=nil;
   try
@@ -2213,7 +2374,7 @@ var CurrentToken:TBESENLexerToken;
     SkipToken(ltoCOLON);
 
     result:=TBESENASTNodeLabelledStatement.Create(Instance);
-    result.Location.LineNumber:=ln;
+    result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
 
     SetLength(TBESENASTNodeLabelledStatement(result).Identifiers,1);
     TBESENASTNodeLabelledStatement(result).Identifiers[0]:=TBESENASTNodeIdentifier(Expression);
@@ -2271,7 +2432,7 @@ var CurrentToken:TBESENLexerToken;
    end else begin
     ParseOptionalSemicolon;
     result:=TBESENASTNodeExpressionStatement.Create(Instance);
-    result.Location.LineNumber:=ln;
+    result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
     TBESENASTNodeExpressionStatement(result).Expression:=Expression;
     Expression:=nil;
    end;
@@ -2288,7 +2449,7 @@ var CurrentToken:TBESENLexerToken;
   result:=nil;
   try
    result:=TBESENASTNodeExpressionStatement.Create(Instance);
-   result.Location.LineNumber:=Lexer.LineNumber;
+   result.CodeLocation.SetInfo(Lexer.LineNumber, Lexer.CurrentColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
    TBESENASTNodeExpressionStatement(result).Expression:=TBESENASTNodeAssignmentExpression.Create(Instance);
    Expression:=TBESENASTNodeAssignmentExpression(TBESENASTNodeExpressionStatement(result).Expression);
    Expression.LeftExpression:=ParseIdentifier(not TBESEN(Instance).IsStrict);
@@ -2300,7 +2461,7 @@ var CurrentToken:TBESENLexerToken;
  end;
 
  function ParseStatement(ResetCurrentLabelSet:boolean):TBESENASTNodeStatement;
- var LineNumber:integer;
+ var LineInfo:TBESENLocation;
      OldToken:TBESENLexerToken;
  begin
   result:=nil;
@@ -2308,7 +2469,9 @@ var CurrentToken:TBESENLexerToken;
    if ResetCurrentLabelSet then begin
     CurrentLabelSet:=nil;
    end;
-   LineNumber:=CurrentToken.LineNumber;
+
+   LineInfo.SetInfo(CurrentToken.GLineNumber, currenttoken.GLineColumn, TBESEN(Instance).CurrentFile); // was FilenameSet
+
    case CurrentToken.TokenType of
     ltoSEMICOLON:begin
      SkipToken(ltoSEMICOLON);
@@ -2378,7 +2541,7 @@ var CurrentToken:TBESENLexerToken;
     end;
    end;
    if assigned(result) then begin
-    result.Location.LineNumber:=LineNumber;
+    result.CodeLocation.copy( LineInfo );
    end;
   except
    BESENFreeAndNil(result);

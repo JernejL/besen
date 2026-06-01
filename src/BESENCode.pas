@@ -33,7 +33,7 @@ unit BESENCode;
 
 interface
 
-uses SysUtils,BESENConstants,BESENTypes,BESENValue,BESENBaseObject,
+uses SysUtils, BESENConstants,BESENTypes,BESENValue,BESENBaseObject,
      BESENCollectorObject,BESENASTNodes,BESENStringList,
      BESENHashMap;
 
@@ -90,10 +90,10 @@ type TBESENCodeVariable=record
        IsComplexFunction:TBESENBoolean;
        HasMaybeDirectEval:TBESENBoolean;
        HoldLocalVariablesInRegisters:TBESENBoolean;
-       LastCodePos:integer;
+       LastCodePos:integer; // OFFSET in ByteCode
        LastOpcode:integer;
-       LastLine:integer;
-       LookupNames:TBESENStringList;
+       LocationsIndex:integer; // NOT line but CodeLineInfo index (Locations).
+       LookupNames:TBESENStringList; // this has duplicates sometimes.. could be improved.
        FreeCodeContexts:TObject;
        CountOfFreeCodeContexts:integer;
        constructor Create(AInstance:TObject); overload; override;
@@ -170,7 +170,7 @@ begin
  HoldLocalVariablesInRegisters:=false;
  LastCodePos:=-1;
  LastOpcode:=-1;
- LastLine:=-1;
+ LocationsIndex:=-1;
  LookupNames:=TBESENStringList.Create;
  FreeCodeContexts:=nil;
  CountOfFreeCodeContexts:=0;
@@ -544,13 +544,18 @@ var i:integer;
 begin
  result:=-1;
  if TBESEN(Instance).CodeLineInfo or TBESEN(Instance).CodeTracable then begin
+
+  // OutputDebugStringW( pwidechar( wideformat('TBESENCode.GenLocation %s:%d | %d', [ TBESEN(Instance).FFilenames[l.iFileName], l.iLineNumber, l.iColumnNumber ]) ) );
+
+  // check if existing already in.
   for i:=0 to CountLocations-1 do begin
-   //if Locations[i].LineNumber=l.LineNumber then begin
-   if (Locations[i].LineNumber=l.LineNumber)and(Locations[i].FileName=l.FileName) then begin
+   if (Locations[i].iLineNumber = l.iLineNumber) and (Locations[i].iColumnNumber = l.iColumnNumber) and  (Locations[i].iFileName = l.iFileName) then begin
     result:=i;
     break;
    end;
   end;
+
+  // add new line location
   if result<0 then begin
    result:=CountLocations;
    if CountLocations>=length(Locations) then begin
@@ -559,18 +564,22 @@ begin
    Locations[result]:=l;
    inc(CountLocations);
   end;
-  LastOpcodeWasLine:=LastOpcode=bopLINE;
-  if LastLine<>result then begin
-   LastLine:=result;
+
+  LastOpcodeWasLine:= (LastOpcode = bopLINE);
+
+  if LocationsIndex<>result then begin
+   LocationsIndex:=result;
    if LastOpcodeWasLine then begin
     ByteCode[LastCodePos+1]:=result;
    end else begin
     GenOp(bopLINE,result);
    end;
   end;
+
   if TBESEN(Instance).CodeTracable and not LastOpcodeWasLine then begin
    GenOp(bopTRACE);
   end;
+
  end;
 end;
 
@@ -672,8 +681,10 @@ begin
 end;
 
 procedure TBESENCode.Execute(const Context:TObject;var ResultValue:TBESENValue);
-var CodeContext:TBESENCodeContext;
+var
+	CodeContext:TBESENCodeContext;
 begin
+
  if assigned(FreeCodeContexts) then begin
   CodeContext:=TBESENCodeContext(FreeCodeContexts);
   TBESENCodeContext(FreeCodeContexts):=TBESENCodeContext(FreeCodeContexts).NextCodeContext;
@@ -681,7 +692,10 @@ begin
  end else begin
   CodeContext:=TBESENCodeContext.Create(Instance,self);
  end;
+
+
  TBESENCodeContext(TBESENContext(Context).CodeContext):=CodeContext;
+
  try
   TBESENCodeContext(TBESENContext(Context).CodeContext).Execute(TBESENContext(Context),ResultValue);
  finally
@@ -695,6 +709,7 @@ begin
    BESENFreeAndNil(CodeContext);
   end;                        
  end;
+
 end;
 
 end.

@@ -236,6 +236,9 @@ begin
   Offsets:=nil;
   ByteCode:=@Code.ByteCode[0];
   SetLength(Offsets,Code.ByteCodeLen);
+
+  // TBESEN(CodeContext.Instance).
+
   while CurrentPC<TBESENUINT32(Code.ByteCodeLen) do begin
    Offsets[CurrentPC]:=CodeBufferLen;
    Instruction:=ByteCode^[CurrentPC];
@@ -1066,7 +1069,7 @@ begin
     end;
     bopLINE:begin
      Add(#$b8); // mov eax,Arg
-     AddDWord(Code.Locations[Operands^[0]].LineNumber);
+     AddDWord(Code.Locations[Operands^[0]].iLineNumber);
      asm
       jmp @Skip
        @CodeBegin:
@@ -1079,9 +1082,9 @@ begin
      end;
      AddCode(CodeBegin,CodeEnd);
 
-     // this works, but it probably fucks up string reference counting D:
+     // this works, but it probably fucks up string reference counting D: <- reddor patch https://github.com/reddor/besenws/commit/0a29b01bc35ea6dcfb77896632af5e35a152aaa3#diff-b2e891ab369ac7662ca47254aed9267b6a1ee82afb7b68629ad77166fad35c1eR1081-R1085
      Add(#$b8); // mov eax,Arg
-     AddDWord(Cardinal(Code.Locations[Operands^[0]].FileName));
+     AddDWord(Cardinal(Code.Locations[Operands^[0]].iFileName));
      asm
       jmp @Skip
        @CodeBegin:
@@ -2500,9 +2503,12 @@ begin
     else begin
      AddDispatcher;
     end;
-   end;
+   end; // case opcode
 
-  end;
+  end; // while loop
+
+  TBESEN(CodeContext.Instance).GeneratedOpcodes += Code.ByteCodeLen;
+
   RetOfs:=CodeBufferLen;
   Add(#$c3); // ret
   SetLength(CodeBuffer,CodeBufferLen);
@@ -2563,6 +2569,7 @@ asm
  pop ebp
 end;
 {$endif}
+
 {$endif}
 
 end.

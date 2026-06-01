@@ -150,16 +150,16 @@ procedure BESENThrowNotAccessable(const InContext:TBESENCodeContext; const ARef:
 procedure BESENThrowNotReadable(const P:TBESENString);
 procedure BESENThrowNotWritable(const P:TBESENString);
 procedure BESENThrowNoSetter(const P:TBESENString);
-procedure BESENThrowRcursivePrototypeChain(const InContext: Tobject );
+procedure BESENThrowRcursivePrototypeChain(const InContext: Tobject ); // object is garbage collector.
+procedure BESENThrowPutRecursivePrototypeChain(const InContext: Tobject ); // object is garbage collector.
 procedure BESENThrowPut(const P:TBESENString);
-procedure BESENThrowPutRecursivePrototypeChain(const InContext: Tobject );
-procedure BESENThrowPutInvalidPrototype(const InContext: Tobject );
+procedure BESENThrowPutInvalidPrototype(const InContext: Tobject ); // object is garbage collector.
 procedure BESENThrowDefineOwnProperty(const P:TBESENString);
-procedure BESENThrowCaller(const InContext: Tobject );
-procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const InContext: Tobject; const fn:TBESENString);
+procedure BESENThrowCaller(const InContext: Tobject ); // context is tbesenobject
+procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const InContext: Tobject; const fn:TBESENString); // incontext is astnode
 procedure BESENThrowTypeErrorNotAConstructorObject(const InContext: TBESENCodeContext );
 procedure BESENThrowTypeErrorObjectHasNoConstruct(const InContext: TBESENCodeContext );
-procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn:TBESENString);
+procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn: TBESENString; const additional: TBESENString);
 procedure BESENThrowTypeErrorNotCallable(const InContext: TBESENCodeContext );
 
 implementation
@@ -523,7 +523,9 @@ end;
 
 procedure BESENThrowRangeError(const Msg: TBESENString);
 begin
- raise EBESENRangeError.CreateUTF16(Msg);
+
+	raise EBESENRangeError.CreateUTF16(Msg);
+
 end;
 
 procedure BESENThrowInternalError(const InContext: Tobject; const Msg: TBESENString);
@@ -535,7 +537,12 @@ end;
 
 procedure BESENThrowError(const InContext: TBESENCodeContext; const Msg: TBESENString);
 begin
- raise EBESENError.CreateUTF16(Msg);
+
+    if InContext = nil then
+    	raise EBESENError.CreateUTF16(Msg + #13 + ' In no code context ?!' )
+    else
+		raise EBESENError.CreateUTF16(Msg + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames ) );
+
 end;
 
 procedure BESENThrowCodeGeneratorInvalidRegister;
@@ -549,14 +556,49 @@ begin
 end;
 
 procedure BESENThrowNotDefined(const InContext: TBESENCodeContext; const ARef: TBESENValue);
+var
+	i: Integer;
+    varconcat: TBESENString;
+    buildstring: TBESENString;
 begin
 
- BESENThrowReferenceError('"'+ARef.Str+'" is not defined variable in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' ');
+	varconcat:= '*none*';
+
+	for i:= 0 to InContext.Code.LookupNames.Count - 1 do begin
+
+        if i = 0 then
+		    varconcat:= InContext.Code.LookupNames[i]
+		else
+			varconcat:= varconcat + ', ' + InContext.Code.LookupNames[i];
+
+	end;
+
+    {
+	for i:= 0 to InContext.LookupMaxIndex - 1 do begin
+
+		// if InContext.LookupNames[i] = '' then break; // finished?
+
+		if i = 0 then
+		    varconcat:= InContext.LookupNames[i]
+		else
+			varconcat:= varconcat + ', ' + InContext.LookupNames[i];
+
+	end;
+    }
+
+	// todo: InContext.Context.ThisBinding;
+
+	//InContext.Code.Locations[0].LineNumber;
+
+	buildstring:= '"' + ARef.Str + '" is not defined variable, availible variables are: ( ' + varconcat + ' )'  + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames);
+
+	BESENThrowReferenceError(buildstring);
+
 end;
 
 procedure BESENThrowReference(const InContext: TBESENCodeContext);
 begin
- BESENThrowReferenceError('Reference error');
+ BESENThrowReferenceError('Reference error' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
 end;
 
 procedure BESENThrowNotAccessable(const InContext: TBESENCodeContext; const ARef: TBESENValue);
@@ -569,9 +611,9 @@ begin
  	// BESENThrowReferenceError(InContext.Block.Ident + ' - ' + InContext.Block.Obj.ObjectClassName + ' - ' + InContext.Block.Obj.ObjectName);
 
 	if ARef.ReferenceIsStrict then
-		BESENThrowReferenceError('variable "'+ARef.Str+'" in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' is not declared in this context (mode strict). Maybe it is not assigned or declared as a variable ( use "var '+ARef.Str+'" ).')
+		BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context (mode strict). Maybe it is not assigned or declared as a variable ( use "var '+ARef.Str+'" ).' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames))
 	else
-    	BESENThrowReferenceError('variable "'+ARef.Str+'" in file ' + TBESEN(InContext.Instance).GetFilename() + ':' + inttostr(TBESEN(InContext.instance).LineNumber) + ' is not declared in this context.');
+    	BESENThrowReferenceError('variable "'+ARef.Str+'" is not declared in this context.' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
 
 end;
 
@@ -592,6 +634,8 @@ end;
 
 procedure BESENThrowRcursivePrototypeChain(const InContext: Tobject);
 begin
+
+  // InContext is garbage collector
  BESENThrowTypeError(nil, 'Recursive prototype chain not allowed');
 end;
 
@@ -602,13 +646,21 @@ end;
 
 procedure BESENThrowPutRecursivePrototypeChain(const InContext: Tobject);
 begin
- BESENThrowTypeError(nil, 'Put for "__proto__" failed, because the prototype chain would be recursive');
+
+ // object is garbage collector.
+
+ // + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames)
+
+ BESENThrowTypeError(nil, 'Put for "__proto__" failed, because the prototype chain would be recursive' );
 end;
+
 
 procedure BESENThrowPutInvalidPrototype(const InContext: Tobject);
 begin
+  // object is garbage collector.
  BESENThrowTypeError(nil, 'Put for "__proto__" failed, because the prototype would be invalid');
 end;
+
 
 procedure BESENThrowDefineOwnProperty(const P: TBESENString);
 begin
@@ -617,32 +669,37 @@ end;
 
 procedure BESENThrowCaller(const InContext: Tobject);
 begin
+ // context is tbesenobject
  BESENThrowTypeError(InContext, '"caller" not allowed here');
 end;
 
+// incontext is astnode
 procedure BESENThrowTypeErrorDeclarationBindingInstantiationAtFunctionBinding(const InContext: Tobject; const fn: TBESENString);
 begin
- BESENThrowTypeError(InContext, '"'+fn+'" not writable or is a accessor descriptor');
+ BESENThrowTypeError(InContext, '"'+fn+'" not writable or is a accessor descriptor' );
 end;
+
+
 
 procedure BESENThrowTypeErrorNotAConstructorObject(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError(InContext, 'Not a constructor object');
+ BESENThrowTypeError(InContext, 'Not a constructor object' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
 end;
 
 procedure BESENThrowTypeErrorObjectHasNoConstruct(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError(InContext, 'Object has no construct');
+ BESENThrowTypeError(InContext, 'Object has no construct' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
 end;
 
-procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn: TBESENString);
+procedure BESENThrowTypeErrorNotAFunction(const InContext: TBESENCodeContext; const fn: TBESENString; const additional: TBESENString);
 begin
- BESENThrowTypeError(InContext, fn + ' is not a valid method');
+ BESENThrowTypeError(InContext, fn + ' is not a valid method, type = ' + additional + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
+
 end;
 
 procedure BESENThrowTypeErrorNotCallable(const InContext: TBESENCodeContext);
 begin
- BESENThrowTypeError(InContext, 'Not callable');
+ BESENThrowTypeError(InContext, 'Not callable' + #13 + ' In ' + #13 + TBESEN(InContext.Instance).codelocation_toString(TBESEN(InContext.Instance).FFilenames));
 end;
 
 end.

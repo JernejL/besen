@@ -28,8 +28,10 @@ or contact:
       USA
 
 *******************************************************************************)
+
+
 {$ifdef fpc}
- {$mode delphi}
+ {$mode delphiunicode} // 2 bytes per char!!
  {$ifdef cpui386}
   {$define cpu386}
  {$endif}
@@ -299,9 +301,7 @@ or contact:
 {$endif}
 {$ifdef cpuamd64}
  {$define UseRegister}
- {$ifndef windows}
-  {$define HasJIT}
- {$endif}
+ {$define HasJIT}
 {$endif}
 {$ifdef NextGen}
  {$define BESENEmbarcaderoNextGen}
@@ -331,4 +331,33 @@ or contact:
  {$endif}
 {$endif}
 
-{.$OPTIMIZATION REGVAR,LEVEL2,STACKFRAME,PEEPHOLE,ASMCSE,LOOPUNROLL,FASTMATH,CSE,DFA} // https://www.freepascal.org/docs-html/prog/progsu58.html
+{.$define cpu32}                            // does nothing
+{.$define HAS_TYPE_SINGLE}                  // does nothing
+{.$define HAS_TYPE_DOUBLE}					// does nothing
+{.$define BESENDelphiHasNoSystemTimeMore}	// some more delphi specific stuff related to date and timezones
+{.$define BESENEmbarcaderoNextGen}			// will use some newer delphi-specific language constructs, mainly to do with utf, char conversion
+{.$define BESENSingleStringType}			// if defined: it uses TBESENSTRING otherwise TBESENUTF8STRING (based on ansistring) it is not clear to what it will set things to.
+{.$define BIG_ENDIAN}                       // affects BESENNumberUtils, affects TDoubleCasted and BESENTypes.TBESENDoubleHiLo in some functions.
+{.$define caninline}						// besencodecontext inlines some functions. requires PurePascal. in BESENNumberUtils it also inlines some functions (PurePascal not required there)
+{.$define cpu386}                           // 32 bit specific assembly code is used as optimizations in many places.
+{.$define HAS_TYPE_EXTENDED}				// sets BESENFPUPrecisionMode to pmEXTENDED and then uses that to call SetPrecisionMode()
+{.$define HasJIT}							// uses JIT optimized code execution (TBESENCodeContext.ExecuteCode) instead of classical code interpretation, also changes some things in BESENNativeCodeMemoryManager
+{.$define LITTLE_ENDIAN}                    // does not do anything.
+{.$define PurePascal}                       // disables JIT by setting DisableJIT, if NOT set, some parts also set PurePascalExecuteByteCode
+{.$define PurePascalExecuteByteCode}		// TBESENCodeContext.ExecuteByteCode is pascal based.
+{.$define strictutf8}                       // affects BESENStringUtils, seems to be sort of stricter type of encoding
+{.$define UseAssert}						// used as kinda unit tests for how some things are used.
+{.$define UseOptimizedHashing}				// BESENHashUtils uses different algorythm ( https://github.com/BeRo1985/besen/pull/14 )
+{.$define UseRegister}						// some functions will use {$ifdef UseRegister}register;{$endif} calling convention. this is default for x86. Not sure what purpose this serves.
+{.$define UseSafeOperations}				// does a lot more nan and inf checks on floats
+{.$define windows}							// uses windows VirtualProtect for locking and mmsystem
+{.$define HasSAR}                           // uses SARLongint 32-bit Shift Arithmetic Right function ( https://www.freepascal.org/docs-html/rtl/system/sarlongint.html )
+{.$define DisableJIT}						// disables JIT by unsetting HasJIT
+{.$define reddor_patch_ast_bytecode}		// includes following BESEN fixes by reddor: (avoid traversing AST for function bodies multiple times, fix potential access violation in bytecode generator, add missing register allocation in bytecode generator, which could lead to memory corruption or access violations when bytecode is executed ) - see: https://github.com/reddor/besenws/commit/3008f66d9fb6d38b1c92fc1ebc18f9e4eefef714#diff-ce5fc568af420ac988d5546ff58f5c0b
+{.$define besen_arena_allocator}			// uses a faster cache optimized garbage collector (ai written arena pool allocator)
+{.$define original_besen_BESENArrayIndexToStr}		// does not use lookup table optimization for BESENArrayIndexToStr
+
+{.$define reddor_patch_ast_bytecode} // does not work on 64 bit.
+{$define HasSAR}
+{$define besen_arena_allocator}
+

@@ -217,10 +217,11 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
   begin
    if assigned(ToVisit) and not HasResult then begin
     if ToVisit is TBESENASTNodeStatement then begin
-     if TBESENASTNodeStatement(ToVisit).Location.LineNumber>0 then begin
-      TBESEN(Instance).LineNumber:=TBESENASTNodeStatement(ToVisit).Location.LineNumber;
-      TBESEN(Instance).CurrentFile:=TBESENASTNodeStatement(ToVisit).Location.Filename;
+
+     if TBESENASTNodeStatement(ToVisit).CodeLocation.hasinfo() then begin
+      TBESEN(Instance).SetLineLocation( TBESENASTNodeStatement(ToVisit).CodeLocation, 'compiler from AST ' + BesenASTNodeString(TBESENASTNodeStatement(ToVisit).NodeType) + ' ' + {$I %LINE%}  ); // LOOKS GOOD HERE.
      end;
+
     end;
     case ToVisit.NodeType of
      bntNONE:begin
@@ -611,9 +612,8 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
   begin
    if assigned(ToVisit) then begin
     if ToVisit is TBESENASTNodeStatement then begin
-     if TBESENASTNodeStatement(ToVisit).Location.LineNumber>0 then begin
-      TBESEN(Instance).LineNumber:=TBESENASTNodeStatement(ToVisit).Location.LineNumber;
-      TBESEN(Instance).CurrentFile:=TBESENASTNodeStatement(ToVisit).Location.Filename;
+     if TBESENASTNodeStatement(ToVisit).CodeLocation.hasinfo() then begin
+      TBESEN(Instance).SetLineLocation( TBESENASTNodeStatement(ToVisit).CodeLocation, 'compiler from AST ' + BesenASTNodeString(TBESENASTNodeStatement(ToVisit).NodeType) + ' ' + {$I %LINE%}  );
      end;
     end;
     case ToVisit.NodeType of
@@ -1041,9 +1041,8 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
    result:=ToVisit;
    if assigned(ToVisit) then begin
     if ToVisit is TBESENASTNodeStatement then begin
-     if TBESENASTNodeStatement(ToVisit).Location.LineNumber>0 then begin
-      TBESEN(Instance).LineNumber:=TBESENASTNodeStatement(ToVisit).Location.LineNumber;
-      TBESEN(Instance).CurrentFile:=TBESENASTNodeStatement(ToVisit).Location.Filename;
+     if TBESENASTNodeStatement(ToVisit).codeLocation.hasinfo() then begin
+      TBESEN(Instance).SetLineLocation( TBESENASTNodeStatement(ToVisit).CodeLocation, 'compiler from AST ' + BesenASTNodeString(TBESENASTNodeStatement(ToVisit).NodeType) + ' ' + {$I %LINE%}  );
      end;
     end;
     case ToVisit.NodeType of
@@ -1142,7 +1141,14 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if assigned(Functions) then begin
        Functions.Add(ToVisit);
        result:=TBESENASTNodeEmptyStatement.Create(Instance);
-       TBESENASTNodeEmptyStatement(result).Location.LineNumber:=TBESENASTNodeFunctionDeclaration(ToVisit).Location.LineNumber;
+
+       TBESENASTNodeEmptyStatement(result).CodeLocation.copy(TBESENASTNodeFunctionDeclaration(ToVisit).CodeLocation);
+    {
+       TBESENASTNodeEmptyStatement(result).CodeLocation.SetInfo(
+       	TBESENASTNodeFunctionDeclaration(ToVisit).CodeLocation.LineNumber,
+        TBESENASTNodeFunctionDeclaration(ToVisit).CodeLocation.ColumnNumber,
+        TBESENASTNodeFunctionDeclaration(ToVisit).CodeLocation.Filename);
+     }
       end;
      end;
      bntEXPRESSIONSTATEMENT:begin
@@ -1506,7 +1512,8 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
  function Optimize(RootNode:TBESENASTNode):TBESENASTNode;
  var vl,vr:TBESENValue;
   function Visit(ToVisit:TBESENASTNode):TBESENASTNode;
-  var Counter,LastLineNumber:integer;
+  var Counter{,LastLineNumber, LastLinecolumn}:integer;
+      CodeLocation: TBESENLocation;
       nr:TBESENNumber;
       sr:TBESENString;
       br,OldIsStrict:TBESENBoolean;
@@ -1514,9 +1521,8 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
    result:=ToVisit;
    if assigned(ToVisit) then begin
     if ToVisit is TBESENASTNodeStatement then begin
-     if TBESENASTNodeStatement(ToVisit).Location.LineNumber>0 then begin
-      TBESEN(Instance).LineNumber:=TBESENASTNodeStatement(ToVisit).Location.LineNumber;
-      TBESEN(Instance).CurrentFile:=TBESENASTNodeStatement(ToVisit).Location.Filename;
+     if TBESENASTNodeStatement(ToVisit).CodeLocation.hasinfo() then begin
+      TBESEN(Instance).SetLineLocation( TBESENASTNodeStatement(ToVisit).CodeLocation, 'compiler from AST ' + BesenASTNodeString(TBESENASTNodeStatement(ToVisit).NodeType) + ' ' + {$I %LINE%} );
      end;
     end;
     case ToVisit.NodeType of
@@ -1620,7 +1626,9 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if ConvertToValue(TBESENASTNodeWhileStatement(ToVisit).Expression,vl) then begin
        if not TBESEN(Instance).ToBool(vl) then begin
         result:=TBESENASTNodeEmptyStatement.Create(Instance);
-        TBESENASTNodeEmptyStatement(result).Location.LineNumber:=TBESENASTNodeFunctionDeclaration(ToVisit).Location.LineNumber;
+
+        TBESENASTNodeEmptyStatement(result).CodeLocation.copy( TBESENASTNodeFunctionDeclaration(ToVisit).CodeLocation);
+
         AddTrashNode(result,TBESENASTNodeWhileStatement(ToVisit).Expression);
         AddTrashNode(result,TBESENASTNodeWhileStatement(ToVisit).Statement);
         TBESENASTNodeWhileStatement(ToVisit).Statement:=nil;
@@ -1648,7 +1656,12 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       TBESENASTNodeForInStatement(ToVisit).Statement:=pointer(Visit(TBESENASTNodeForInStatement(ToVisit).Statement));
      end;
      bntIFSTATEMENT:begin
-      LastLineNumber:=ToVisit.Location.LineNumber;
+
+      CodeLocation.copy(ToVisit.CodeLocation);
+
+      //LastLineNumber:=ToVisit.CodeLocation.LineNumber;
+      //LastLinecolumn:=ToVisit.Location.ColumnNumber;
+
       TBESENASTNodeIfStatement(ToVisit).Expression:=pointer(Visit(TBESENASTNodeIfStatement(ToVisit).Expression));
       TBESENASTNodeIfStatement(ToVisit).TrueStatement:=pointer(Visit(TBESENASTNodeIfStatement(ToVisit).TrueStatement));
       TBESENASTNodeIfStatement(ToVisit).FalseStatement:=pointer(Visit(TBESENASTNodeIfStatement(ToVisit).FalseStatement));
@@ -1664,7 +1677,9 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
          BESENFreeAndNil(ToVisit);
         end else begin
          result:=TBESENASTNodeEmptyStatement.Create(Instance);
-         result.Location.LineNumber:=LastLineNumber;
+
+         result.CodeLocation.copy(CodeLocation);
+
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).Expression);
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).TrueStatement);
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).FalseStatement);
@@ -1684,7 +1699,9 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
          BESENFreeAndNil(ToVisit);
         end else begin
          result:=TBESENASTNodeEmptyStatement.Create(Instance);
-         result.Location.LineNumber:=LastLineNumber;
+
+         result.CodeLocation.copy(CodeLocation);
+
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).Expression);
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).TrueStatement);
          AddTrashNode(result,TBESENASTNodeIfStatement(ToVisit).FalseStatement);
@@ -1697,7 +1714,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
       if not assigned(result) then begin
        result:=TBESENASTNodeEmptyStatement.Create(Instance);
-       result.Location.LineNumber:=LastLineNumber;
+       result.CodeLocation.copy(CodeLocation);
       end;
      end;
      bntLABELLEDSTATEMENT:begin
@@ -2206,7 +2223,12 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
      CodeGeneratorContext:TBESENCodeGeneratorContext;
      OptimizeLocals,HasFunctions,DoHasLocalDelete,DoIsComplexFunction,DoHasMaybeDirectEval,DoHoldLocalVariablesInRegisters:boolean;
   procedure Visit(ToVisit:TBESENASTNode;var DestRegNr:integer;CalleeNeedReturnedValue:boolean);
-  var Counter,L1,L2,L3,L3a,L3b,P1,P2,PR,PR2,r1,r2,r3,r4,r5,r6,v1:integer;
+  var Counter,
+ 		L1,L2,L3,L3a,L3b,
+        P1,P2,PR,PR2, // opperations, length?
+        r1,r2,r3,r4,r5,r6, // registers
+        v1:integer; // bytecode?
+
       OldCode:TBESENCode;
       OldCodeGeneratorContext:TBESENCodeGeneratorContext;
       v:TBESENValue;
@@ -3001,9 +3023,11 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
     r5:=-1;
     r6:=-1;
     if ToVisit is TBESENASTNodeStatement then begin
-     if TBESENASTNodeStatement(ToVisit).Location.LineNumber>0 then begin
-      TBESEN(Instance).LineNumber:=TBESENASTNodeStatement(ToVisit).Location.LineNumber;
-      TBESEN(Instance).CurrentFile:=TBESENASTNodeStatement(ToVisit).Location.Filename;
+     if TBESENASTNodeStatement(ToVisit).CodeLocation.hasinfo() then begin
+
+
+      TBESEN(Instance).SetLineLocation( TBESENASTNodeStatement(ToVisit).CodeLocation, 'compiler from AST ' + BesenASTNodeString(TBESENASTNodeStatement(ToVisit).NodeType) + ' ' + {$I %LINE%}  ); // looks good too
+
      end;
     end;
     case ToVisit.NodeType of
@@ -3376,10 +3400,10 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       TBESENCode(TBESENASTNodeFunctionLiteral(ToVisit).Body.Code).Finish;
      end;
      bntSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
      end;
      bntVARIABLESTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
@@ -3404,7 +3428,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
      end;
      bntEXPRESSIONSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if Code.Body.IsFunction then begin
        PR:=Code.Here;
        CodeGeneratorContext.GetRegisterStates(RegStates[0]);
@@ -3448,10 +3472,10 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
      end;
      bntEMPTYSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
      end;
      bntBLOCKSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
@@ -3468,11 +3492,11 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
      end;
      bntDEBUGGERSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       Code.GenOp(bopDEBUGGER);
      end;
      bntBREAKSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       Patchables:=CodeGeneratorContext.FindPatchables(TBESENASTNodeBreakStatement(ToVisit).Target,false);
       if assigned(Patchables) then begin
        if Patchables.BlockDepth<CodeGeneratorContext.BlockDepth then begin
@@ -3482,7 +3506,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       end;
      end;
      bntCONTINUESTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       Patchables:=CodeGeneratorContext.FindPatchables(TBESENASTNodeContinueStatement(ToVisit).Target,true);
       if assigned(Patchables) then begin
        if Patchables.BlockDepth<CodeGeneratorContext.BlockDepth then begin
@@ -3517,7 +3541,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         vtb:=CodeGeneratorContext.VariableGetTypes;
         L2:=Code.Here;
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         r1:=-1;
         Visit(TBESENASTNodeDoStatement(ToVisit).Expression,r1,true);
         if r1<0 then begin
@@ -3587,7 +3611,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         CodeGeneratorContext.VariableSetTypes(vtInner);
         L2:=Code.Here;
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         r1:=-1;
         Visit(TBESENASTNodeDoStatement(ToVisit).Expression,r1,true);
         if r1<0 then begin
@@ -3632,7 +3656,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
        Visit(TBESENASTNodeDoStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
        L2:=Code.Here;
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
        r1:=-1;
        Visit(TBESENASTNodeDoStatement(ToVisit).Expression,r1,true);
        if r1<0 then begin
@@ -3689,7 +3713,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        //    * vtb = Before while expression
        //    * vtc = After while expression
        begin
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
 
         CodeGeneratorContext.PushPatchables(TBESENASTNodeWhileStatement(ToVisit).Target,true);
 
@@ -3700,7 +3724,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
         Visit(TBESENASTNodeWhileStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
 
         L2:=Code.Here;
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
 
         vtb:=CodeGeneratorContext.VariableGetTypes;
         Code.GenLabel(P1);
@@ -3767,7 +3791,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         CodeGeneratorContext.VariableSetTypes(vtInner);
 
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
 
         CodeGeneratorContext.PushPatchables(TBESENASTNodeWhileStatement(ToVisit).Target,true);
 
@@ -3778,7 +3802,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
         Visit(TBESENASTNodeWhileStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
 
         L2:=Code.Here;
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
 
         Code.GenLabel(P1);
         CodeGeneratorContext.VariableSetTypes(vtInner);
@@ -3822,7 +3846,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        end;
       end else begin
        // It's extremly type instable global code or the loop body contains labelled break/continue, eo regenerate code for an type instable loop
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
        CodeGeneratorContext.PushPatchables(TBESENASTNodeWhileStatement(ToVisit).Target,true);
        P1:=Code.GenOp(bopJMP,0)+1;
 
@@ -3833,7 +3857,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        Code.GenLabel(P1);
        L2:=Code.Here;
        CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
 
        r1:=CodeGeneratorContext.AllocateRegister;
        Visit(TBESENASTNodeWhileStatement(ToVisit).Expression,r1,true);
@@ -3874,7 +3898,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       dec(CodeGeneratorContext.LoopDepth);
      end;
      bntWITHSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
@@ -3943,7 +3967,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         vta:=CodeGeneratorContext.VariableGetTypes;
         if assigned(TBESENASTNodeForStatement(ToVisit).Initial) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          PR2:=Code.Here;
          CodeGeneratorContext.GetRegisterStates(RegStates[1]);
          vtTemp:=CodeGeneratorContext.VariableGetTypes;
@@ -3980,14 +4004,14 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
         vtb:=CodeGeneratorContext.VariableGetTypes;
         L1:=Code.Here;
         if assigned(TBESENASTNodeForStatement(ToVisit).Statement) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          Visit(TBESENASTNodeForStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
         end;
 
         vtc:=CodeGeneratorContext.VariableGetTypes;
         L2:=Code.Here;
         if assigned(TBESENASTNodeForStatement(ToVisit).Increment) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          PR2:=Code.Here;
          vtTemp:=CodeGeneratorContext.VariableGetTypes;
          CodeGeneratorContext.GetRegisterStates(RegStates[1]);
@@ -4021,7 +4045,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         vtd:=CodeGeneratorContext.VariableGetTypes;
         Code.GenLabel(P1);
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         if assigned(TBESENASTNodeForStatement(ToVisit).Condition) then begin
          r1:=-1;
          Visit(TBESENASTNodeForStatement(ToVisit).Condition,r1,true);
@@ -4092,7 +4116,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         CodeGeneratorContext.VariableSetTypes(vtBegin);
         if assigned(TBESENASTNodeForStatement(ToVisit).Initial) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          PR2:=Code.Here;
          CodeGeneratorContext.GetRegisterStates(RegStates[1]);
          vtTemp:=CodeGeneratorContext.VariableGetTypes;
@@ -4129,14 +4153,14 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
         CodeGeneratorContext.VariableSetTypes(vtInner);
         L1:=Code.Here;
         if assigned(TBESENASTNodeForStatement(ToVisit).Statement) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          Visit(TBESENASTNodeForStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
         end;
 
         CodeGeneratorContext.VariableSetTypes(vtInner);
         L2:=Code.Here;
         if assigned(TBESENASTNodeForStatement(ToVisit).Increment) then begin
-         Code.GenLocation(ToVisit.Location);
+         Code.GenLocation(ToVisit.CodeLocation);
          PR2:=Code.Here;
          CodeGeneratorContext.GetRegisterStates(RegStates[1]);
          vtTemp:=CodeGeneratorContext.VariableGetTypes;
@@ -4170,7 +4194,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
         CodeGeneratorContext.VariableSetTypes(vtInner);
         Code.GenLabel(P1);
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         if assigned(TBESENASTNodeForStatement(ToVisit).Condition) then begin
          r1:=-1;
          Visit(TBESENASTNodeForStatement(ToVisit).Condition,r1,true);
@@ -4218,7 +4242,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
 
        if assigned(TBESENASTNodeForStatement(ToVisit).Initial) then begin
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         PR2:=Code.Here;
         CodeGeneratorContext.GetRegisterStates(RegStates[1]);
         r1:=-1;
@@ -4252,14 +4276,14 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
        L1:=Code.Here;
        if assigned(TBESENASTNodeForStatement(ToVisit).Statement) then begin
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
         Visit(TBESENASTNodeForStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
        end;
 
        L2:=Code.Here;
        if assigned(TBESENASTNodeForStatement(ToVisit).Increment) then begin
-        Code.GenLocation(ToVisit.Location);
+        Code.GenLocation(ToVisit.CodeLocation);
         CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
         PR2:=Code.Here;
         CodeGeneratorContext.GetRegisterStates(RegStates[1]);
@@ -4292,7 +4316,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        end;
 
        Code.GenLabel(P1);
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
        if assigned(TBESENASTNodeForStatement(ToVisit).Condition) then begin
         CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
         r1:=-1;
@@ -4343,7 +4367,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if CodeGeneratorContext.MaxLoopDepth<CodeGeneratorContext.LoopDepth then begin
        CodeGeneratorContext.MaxLoopDepth:=CodeGeneratorContext.LoopDepth;
       end;
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if TBESENASTNodeForInStatement(ToVisit).Variable.NodeType=bntVARIABLEDECLARATION then begin
        r1:=-1;
        r2:=-1;
@@ -4394,6 +4418,9 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
         hi:=CodeGeneratorContext.LookupHashMap.GetKey(TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name);
         if not assigned(hi) then begin
          hi:=CodeGeneratorContext.LookupHashMap.NewKey(TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name,true);
+
+         // OutputDebugStringa(pchar('ADDING LOOKUP:' + TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name));
+
          hi^.Value:=Code.LookupNames.Add(TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name);
         end;
         Code.GenOp(bopLOOKUP,r3,hi^.Value,Hash,Code.GenPolymorphicInlineCacheInstruction);
@@ -4484,7 +4511,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
 
        vta:=CodeGeneratorContext.VariableGetTypes;
 
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
        r1:=-1;
        Visit(TBESENASTNodeIfStatement(ToVisit).Expression,r1,true);
        if r1<0 then begin
@@ -4544,7 +4571,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        CodeGeneratorContext.VariableSetTypes(vte);
       end else begin
        // The if-statmente body contains break/continue or it's extremly type instable global code
-       Code.GenLocation(ToVisit.Location);
+       Code.GenLocation(ToVisit.CodeLocation);
        r1:=-1;
        Visit(TBESENASTNodeIfStatement(ToVisit).Expression,r1,true);
        if r1<0 then begin
@@ -4588,7 +4615,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       CodeGeneratorContext.PushPatchables(TBESENASTNodeLabelledStatement(ToVisit).Target,false);
       Visit(TBESENASTNodeLabelledStatement(ToVisit).Statement,DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
       L1:=Code.Here;
@@ -4599,7 +4626,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
       CodeGeneratorContext.VariableAllSetType(bvtUNDEFINED);
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       for Counter:=0 to length(TBESENASTNodeCaseStatement(ToVisit).Statements)-1 do begin
        Visit(TBESENASTNodeCaseStatement(ToVisit).Statements[Counter],DestRegNr,CalleeNeedReturnedValue or (DestRegNr>=0));
       end;
@@ -4608,7 +4635,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       SetLength(SwitchPatches,length(TBESENASTNodeSwitchStatement(ToVisit).CaseStatements));
       r1:=-1;
       Visit(TBESENASTNodeSwitchStatement(ToVisit).Expression,r1,true);
@@ -4668,7 +4695,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       CodeGeneratorContext.DeallocateRegister(r6);
      end;
      bntTHROWSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if assigned(TBESENASTNodeThrowStatement(ToVisit).Expression) then begin
        r1:=-1;
        Visit(TBESENASTNodeThrowStatement(ToVisit).Expression,r1,true);
@@ -4690,7 +4717,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if assigned(TBESENASTNodeTryStatement(ToVisit).TryBlock) then begin
        if assigned(TBESENASTNodeTryStatement(ToVisit).CatchBlock) and assigned(TBESENASTNodeTryStatement(ToVisit).FinallyBlock) then begin
         L1:=Code.GenOp(bopSTRYF,0)+1;
@@ -5580,6 +5607,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
        GenGetValue(r1,r2);
       end;
       Operands[2]:=r2;
+
       if TBESEN(Instance).CodeTracable then begin
        Code.GenOp(bopTRACECALL,Operands);
       end else begin
@@ -6102,9 +6130,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if IsValueBoolean(DestRegNr) then begin
        r2:=DestRegNr;
       end else begin
-       {$ifdef reddor_patch_ast_bytecode}
        r2:=CodeGeneratorContext.AllocateRegister;
-       {$endif}
        Code.GenOp(bopTOBOOLEAN,r2,DestRegNr);
       end;
       L1:=Code.GenOp(bopJZ,0,r2)+1;
@@ -6566,7 +6592,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       CodeGeneratorContext.Registers[DestRegNr].IsWhat:=bcgtOBJECT;
      end;
      bntRETURNSTATEMENT:begin
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       if assigned(TBESENASTNodeReturnStatement(ToVisit).Expression) then begin
        r1:=-1;
        Visit(TBESENASTNodeReturnStatement(ToVisit).Expression,r1,true);
@@ -6593,7 +6619,7 @@ function TBESENCompiler.Compile(InputSource:TBESENUTF8STRING;const Parameters:TB
       if CalleeNeedReturnedValue and (DestRegNr<0) then begin
        DestRegNr:=CodeGeneratorContext.AllocateRegister;
       end;
-      Code.GenLocation(ToVisit.Location);
+      Code.GenLocation(ToVisit.CodeLocation);
       OldOptimizeLocals:=OptimizeLocals;
       OldDoHoldLocalVariablesInRegisters:=DoHoldLocalVariablesInRegisters;
       OptimizeLocals:=false;
@@ -6668,7 +6694,8 @@ var Parser:TBESENParser;
     OldFPUPrecisionMode:TFPUPrecisionMode;
 {$endif}
 begin
- result:=nil;
+
+result:=nil;
  Parser:=nil;
  RootNode:=nil;
 {$ifndef BESENNoFPU}
@@ -6697,6 +6724,7 @@ begin
     Parser.Lexer.Source:=InputSource;
    end;
    Parser.Init;
+
    RootNode:=Parser.Parse(IsFunction,IsJSON);
    BESENFreeAndNil(Parser);
 
