@@ -9,6 +9,9 @@ BESEN is licensed under the LGPL v2.1 with static-linking-exception.
 * Minor Fixes
 * Merged some fixes and updates from other scattered branches ( https://github.com/reddor/besenws/tree/master/src/besen )
 * Improved RTTI support
+* Support for OnDeleteOperator on native objects (allowing for resource management without waiting for garbage collector)
+* 64 bit JIT on windows is now supported
+* New, faster "arena"-style garbage allocator
 
 # Support BeRo
 
