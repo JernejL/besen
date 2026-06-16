@@ -5,8 +5,8 @@
 BESEN - A ECMAScript Fifth Edition Object Pascal Implementation
 Copyright (C) 2009-2016, Benjamin 'BeRo' Rosseaux
 
-The source code of the BESEN ecmascript engine library and helper tools are 
-distributed under the Library GNU Lesser General Public License Version 2.1 
+The source code of the BESEN ecmascript engine library and helper tools are
+distributed under the Library GNU Lesser General Public License Version 2.1
 (see the file copying.txt) with the following modification:
 
 As a special exception, the copyright holders of this library give you
@@ -16,7 +16,7 @@ and to copy and distribute the resulting executable under terms of your choice,
 provided that you also meet, for each linked independent module, the terms
 and conditions of the license of that module. An independent module is a module
 which is not derived from or based on this library. If you modify this
-library, you may extend this exception to your version of the library, but you 
+library, you may extend this exception to your version of the library, but you
 are not obligated to do so. If you do not wish to do so, delete this exception
 statement from your version.
 
@@ -36,7 +36,7 @@ unit BESENNativeObject;
 
 interface
 
-uses windows, TypInfo, Rtti, sysutils, Variants, BESENConstants,BESENTypes,BESENObject,BESENObjectFunction,BESENValue,BESENObjectPropertyDescriptor,
+uses windows, Classes, TypInfo, Rtti, sysutils, Variants, BESENConstants,BESENTypes,BESENObject,BESENObjectFunction, BESENObjectDeclaredFunction, BESENValue,BESENObjectPropertyDescriptor,
      BESENEnvironmentRecord;
 
 const
@@ -75,12 +75,14 @@ type
       private
        PropList:PPropList;
        PropListLen:integer;
+       Dispatchers: TList; // Holds TBESENRTTIDispatcher instances for auto-wrapped non-native methods
        function GetProp(const Prop:TBESENObjectProperty;var V:TBESENValue;Throw:boolean):boolean;
        function PutProp(const Prop:TBESENObjectProperty;const V:TBESENValue;Throw:boolean):boolean;
       protected
        procedure ConstructObject(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer); virtual;
        procedure InitializeObject; virtual;
        procedure FinalizeObject; virtual;
+       procedure CopyPrototypeRTTI(var fromobjectprototype: TBESENObject);
       public
        Initialized:TBESENBoolean;
        procedure OnDeleteOperator; virtual;
@@ -106,34 +108,27 @@ type
 
 implementation
 
-uses {$ifdef BESENEmbarcaderoNextGen}System.SysUtils,{$endif}BESEN,BESENErrors,BESENHashUtils,BESENStringUtils, BESENGarbageCollector;
+uses {$ifdef BESENEmbarcaderoNextGen}System.SysUtils,{$endif}BESEN,BESENErrors,BESENHashUtils,BESENStringUtils, BESENGarbageCollector, BESENNativeObjectRttiMethodDispatcher, BESENObjectPrototype, BESENObjectNativeFunction;
 
 {$ifdef BESENEmbarcaderoNextGen}
 function PByteToString(Src:pbyte):string;
-var SrcLen,ResultLen:longint;
-    TempStr:MarshaledAString;
-    TempBuffer:array[0..255] of char;
-begin
- result:='';
- if not assigned(Src) then begin
-  SrcLen:=Src^;
-  if ShortStringLength>0 then begin
-   inc(Src);
-   TempStr:=MarshaledAString(Src);
-   ResultLen:=UTF8ToUnicode(TempBuffer,length(TempBuffer),TempStr,SrcKen);
-   SetString(Result,TempBuffer,ResultLen-1);
-  end;
- end;
+???
 end;
 {$endif}
 
+
 constructor TBESENNativeObject.Create(AInstance:TObject;APrototype:TBESENObject=nil;AHasPrototypeProperty:longbool=false);
 begin
+
  inherited Create(AInstance,APrototype,AHasPrototypeProperty);
  Initialized:=false;
  PropList:=nil;
  PropListLen:=0;
  ObjectClassName:=ClassName + AddNativeConstructorMarker;
+ Dispatchers:=TList.Create;
+
+ InitializeObject(); // init prototype too.
+
 end;
 
 destructor TBESENNativeObject.Destroy;
@@ -149,6 +144,7 @@ begin
   PropList:=nil;
   PropListLen:=0;
  end;
+ FreeAndNil(Dispatchers);
  inherited Destroy;
 end;
 
@@ -164,146 +160,176 @@ procedure TBESENNativeObject.ConstructObject(const ThisArgument:TBESENValue;Argu
 begin
 end;
 
+
+// Returns true if the method already matches TBESENNativeFunction signature:
+
+// const ThisArgument:TBESENValue;
+// Arguments:PPBESENValues;
+// CountArguments:integer;
+// var AResult:TBESENValue
+// THIS IS SLOW WHEN IT CALLS "FIND" ?!
+
+function IsNativeBESENSignature(const M:TRttiMethod):boolean; // inline;
+var
+	P:TArray<TRttiParameter>;
+const
+    besenvaluecgk = 'TBESENValue';
+begin
+
+	P:= M.GetParameters;
+
+    if (Length(P) <> 4) then exit(false);
+    if (assigned(P[0].ParamType) = false) then exit(false);
+    if (assigned(P[3].ParamType) = false) then exit(false);
+    if (not ( (pfConst in P[0].Flags) and (pfVar in P[3].Flags) ) ) then exit(false);
+
+    // check strings now
+    result:= (P[0].ParamType.Name= besenvaluecgk ) and (P[3].ParamType.Name= besenvaluecgk) ;
+
+    {
+
+    if (Length(P) <>4) then exit(false);
+
+    result:= assigned(P[0].ParamType) and (P[0].ParamType.Name= 'TBESENValue' ) and (pfConst in P[0].Flags) and assigned(P[3].ParamType) and (P[3].ParamType.Name= 'TBESENValue') and (pfVar in P[3].Flags);
+
+    }
+
+end;
+
 procedure TBESENNativeObject.InitializeObject;
 
 
 	procedure AddRTTIMethods();
 	var
-		i:integer;
-    MethodTable:PMethodNameTable;
-    MethodNameRec:PMethodNameRec;
-    MethodName:TBESENSTRING;
-    MethodAddress:pointer;
-    NativeFunction:TBESENNativeFunction;
+		NativeFunction:TBESENNativeFunction;
+		// Use extended RTTI to enumerate public methods on this exact class.
+		// - Methods that already carry the BESEN native function signature are
+		//   registered directly via their CodeAddress (zero-overhead path).
+		// - All other public methods are wrapped by a TBESENRTTIDispatcher that
+		//   auto-marshals TBESENValue <-> typed Pascal args through TRttiMethod.Invoke.
+		//   This lets you write normal typed Pascal methods and expose them to JS:
+		//     function  Add(A,B:integer):integer;
+		//     function  Greet(const Name:string):string;
+		//     procedure SetFlag(Value:boolean);
+		//   They are accessible from JavaScript exactly like native methods.
+		Ctx:TRttiContext;
+		RttiType:TRttiType;
+		RttiMethod:TRttiMethod;
+		IsNative:boolean;
+		Dispatcher:TBESENRTTIDispatcher;
+		rttimethods: TRttiMethodArray;
 
-		//Ctx: TRttiContext;
-		//RttiType: TRttiType;
-		//RttiMethod: TRttiMethod;
-		//Param: TRttiParameter;
-		//ParamStr: string;
-
-begin
-
+	begin
 		try
+			Ctx:=TRttiContext.Create;
+			try
+				RttiType:=Ctx.GetType(Self.ClassType);
 
-        	//Ctx := TRttiContext.Create;
+	            rttimethods:= RttiType.GetMethods;
 
-   MethodTable:=pointer(pointer(ptrint(ptrint(pointer(self)^)+vmtMethodTable))^);
+	            // OutputDebugStringW(pwidechar(wideformat('class %s has %d methods', [ Self.ClassName, length(rttimethods)  ])));
 
-            //RttiType := Ctx.GetType(Self.ClassType);
+	            for RttiMethod in rttimethods do begin
 
-   if assigned(MethodTable) then begin
-    MethodNameRec:=@MethodTable^.Methods[0];
-    for i:=0 to MethodTable^.Count-1 do begin
-{$ifdef fpc}
-     MethodName:=MethodNameRec^.Name^;
-{$else}
-{$ifdef BESENEmbarcaderoNextGen}
-     MethodName:=PByteToString(@(MethodNameRec^.Name));
-{$else}
-     MethodName:=TBESENSTRING(MethodNameRec^.Name);
-{$endif}
-{$endif}
-     MethodAddress:=MethodNameRec^.Address;
-     if (length(MethodName)>0) and assigned(MethodAddress) then begin
+					// Only expose public methods
 
-                    	// todo: check in 64 bit
-						// OutputDebugStringW(pwidechar('Adding RTTI method: ' + self.ClassName + '.' + MethodName));
+	                if ((RttiMethod.IsConstructor = true) or (RttiMethod.IsDestructor = true) ) then continue;
 
-                        // look up this method name in Rtti to get param info
-                     	// this is not yet usable in freepascal.
+					if not (RttiMethod.Visibility in [ mvPublic, mvPublished]) then
+						continue;
 
-                     	{
+					if length(RttiMethod.Name)=0 then
+						continue;
 
-				        RttiMethod := RttiType.GetMethod(MethodName);
+	                IsNative:= IsNativeBESENSignature(RttiMethod);
 
-				        if Assigned(RttiMethod) then begin
+					if IsNative then begin
 
-				        	ParamStr := '';
-				        	for Param in RttiMethod.GetParameters do begin
-				            	if ParamStr <> '' then ParamStr := ParamStr + ', ';
-				            	ParamStr := ParamStr + Param.Name + ': ' + Param.ParamType.Name;
-				        	end;
+                     	// OutputDebugStringW(pwidechar(wideformat('adding native besen rtti method %s native besen: %d, destructor %d, constructor %d, classmethod %d, staticclassmethod %d', [ RttiMethod.Name, ord(IsNative), ord(RttiMethod.IsDestructor), ord(RttiMethod.IsDestructor), ord(RttiMethod.IsClassMethod), ord(RttiMethod.IsClassMethod) ])));
 
-				        	if RttiMethod.ReturnType <> nil then
-				        		OutputDebugStringW(pwidechar(wideFormat('function %s(%s): %s', [MethodName, ParamStr, RttiMethod.ReturnType.Name])))
-				        	else
-				        		OutputDebugStringW(pwidechar(wideFormat('procedure %s(%s)', [MethodName, ParamStr])));
+	                	// Method is a native besen method.
 
-				        end else begin
+						TMethod(NativeFunction).Code:= RttiMethod.CodeAddress;
+						TMethod(NativeFunction).Data:= self;
+						RegisterNativeFunction(RttiMethod.Name,NativeFunction,0,[],false);
 
-                        	OutputDebugStringW(pwidechar(wideFormat('no parameter rtti info.', [MethodName, ParamStr])));
+					end else begin
+
+                        {
+	                    if RttiMethod.Name <> 'FreeObject' then begin
+
+	                        OutputDebugStringW(pwidechar(wideformat('adding marshalled rtti method %s native besen: %d, destructor %d, constructor %d, classmethod %d, staticclassmethod %d', [ RttiMethod.Name, ord(IsNative), ord(RttiMethod.IsDestructor), ord(RttiMethod.IsDestructor), ord(RttiMethod.IsClassMethod), ord(RttiMethod.IsClassMethod) ])));
+
+                            // todo: not if it's methods?
+
+							// Wrapper path: create a dispatcher that marshals arguments
+							// and return value through TRttiMethod.Invoke.
+							Dispatcher:=TBESENRTTIDispatcher.Create(self,RttiMethod);
+							Dispatchers.Add(Dispatcher);
+							TMethod(NativeFunction).Code:=@TBESENRTTIDispatcher.Dispatch;
+							TMethod(NativeFunction).Data:=Dispatcher;
+							RegisterNativeFunction(RttiMethod.Name,NativeFunction,0,[],false);
 
 						end;
 
                         }
 
-
-      TMethod(NativeFunction).Code:=MethodAddress;
-      TMethod(NativeFunction).Data:=self;
-
-						RegisterNativeFunction(MethodName, NativeFunction, 0, [], false); // creates TBESENObjectNativeFunction
-
-     end;
-{$ifdef fpc}
-     inc(MethodNameRec);
-{$else}
-     inc(ptruint(MethodNameRec),MethodNameRec^.Size);
-{$endif}
-				end; // each method
-
-   end;
-  except
-   raise;
-  end;
-
+					end;
+				end;
+			finally
+				Ctx.Free;
+			end;
+		except
+			raise;
+		end;
 	end;
 
     procedure AddRTTIProperties;
     var
         i: integer;
         Prop:TBESENObjectProperty;
-        Item:PPropInfo;
+        classproperty:PPropInfo;
     begin
 
-  PropListLen:=GetPropList(self,PropList);
-  try
-   for i:=0 to PropListLen-1 do begin
-    Item:=PropList^[i];
-    if assigned(Item^.PropType) then begin
-	        case Item^.PropType^.Kind of tkLString,tkWString{$ifdef fpc},tkAString{$endif},tkVariant{$ifdef fpc},tkUString{$endif}, tkInteger,tkBool, tkChar,tkFloat,tkEnumeration,tkWChar,tkSet{$ifdef fpc},tkSString{$endif}, tkInt64{$ifdef fpc},tkQWORD{$endif},tkClass:begin
+	  PropListLen:=GetPropList(self,PropList);
+	  try
+	   for i:=0 to PropListLen-1 do begin
 
+        classproperty:= PropList^[i];
 
-{$ifdef BESENEmbarcaderoNextGen}
-       if not assigned(Item^.GetProc) then begin
-        BESENThrowNotReadable(PByteToString(@(Item^.Name)));
-       end;
-       Prop:=Properties.Get(PByteToString(@(Item^.Name)));
-       if not assigned(Prop) then begin
-        Prop:=Properties.Put(PByteToString(@(Item^.Name)));
-       end;
-{$else}
-       if not assigned(Item^.GetProc) then begin
-        BESENThrowNotReadable(TBESENString(Item^.Name));
-       end;
-       Prop:=Properties.Get(TBESENString(Item^.Name));
-       if not assigned(Prop) then begin
-        Prop:=Properties.Put(TBESENString(Item^.Name));
-       end;
-{$endif}
-       Prop.PropIndex:=i;
-       Prop.Descriptor.Value.ValueType:=bvtUNDEFINED;
-       Prop.Descriptor.Getter:=nil;
-       Prop.Descriptor.Setter:=nil;
-       if assigned(Item^.SetProc) then begin
-        Prop.Descriptor.Attributes:=[bopaWRITABLE,bopaENUMERABLE];
-       end else begin
-        Prop.Descriptor.Attributes:=[bopaENUMERABLE];
-       end;
-       Prop.Descriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE];
-	         end else begin
+	    if assigned(classproperty^.PropType) then begin
+			case classproperty^.PropType^.Kind of tkLString,tkWString{$ifdef fpc},tkAString{$endif},tkVariant{$ifdef fpc},tkUString{$endif}, tkInteger,tkBool, tkChar,tkFloat,tkEnumeration,tkWChar,tkSet{$ifdef fpc},tkSString{$endif}, tkInt64{$ifdef fpc},tkQWORD{$endif},tkClass:begin
 
-	         	EBESENError.Create( wideformat('unsupported property: %s', [Item^.Name] ));
+				{$ifdef BESENEmbarcaderoNextGen}
+		       if not assigned(Item^.GetProc) then begin
+		        BESENThrowNotReadable(PByteToString(@(Item^.Name)));
+		       end;
+		       Prop:=Properties.Get(PByteToString(@(Item^.Name)));
+		       if not assigned(Prop) then begin
+		        Prop:=Properties.Put(PByteToString(@(Item^.Name)));
+		       end;
+				{$else}
+		       if not assigned(classproperty^.GetProc) then begin
+		        BESENThrowNotReadable(TBESENString(classproperty^.Name));
+		       end;
+		       Prop:=Properties.Get(TBESENString(classproperty^.Name));
+		       if not assigned(Prop) then begin
+		        Prop:=Properties.Put(TBESENString(classproperty^.Name));
+		       end;
+				{$endif}
+		       Prop.PropIndex:=i;
+		       Prop.Descriptor.Value.ValueType:=bvtUNDEFINED;
+		       Prop.Descriptor.Getter:=nil;
+		       Prop.Descriptor.Setter:=nil;
+		       if assigned(classproperty^.SetProc) then begin
+		        Prop.Descriptor.Attributes:=[bopaWRITABLE,bopaENUMERABLE];
+		       end else begin
+		        Prop.Descriptor.Attributes:=[bopaENUMERABLE];
+		       end;
+		       	Prop.Descriptor.Presents:=[boppVALUE,boppWRITABLE,boppENUMERABLE,boppCONFIGURABLE];
+			end else begin
+
+	         	EBESENError.Create( wideformat('unsupported property: %s', [classproperty^.Name] ));
 
 	            //BESENThrowTypeError(self, 'Unknown native property data type');
 
@@ -316,35 +342,53 @@ begin
 	                 tkHelper,tkFile,tkClassRef,tkPointer);
 	           }
 
-      end;
-     end;
-    end;
-   end;
-  except
-   FreeMem(PropList);
-   PropList:=nil;
-   PropListLen:=0;
-   raise;
-  end;
+	      end;
+	     end;
+	    end;
+	   end;
+	  except
+	   FreeMem(PropList);
+	   PropList:=nil;
+	   PropListLen:=0;
+	   raise;
+	  end;
 
 	end;
 
+var
+	protoinstance: TBESENObject;
 begin
 
- if not Initialized then begin
-  Initialized:=true;
+	if not Initialized then begin
 
-  ObjectClassName:= ClassName + AddNativeObjectMarker;
+		Initialized:= true;
 
-  // todo: only on prototype?
-	AddRTTIMethods();
-	AddRTTIProperties();
+		ObjectClassName:= ClassName + AddNativeObjectMarker;
 
-  InvalidateStructure;
- end;
+        protoinstance:= BESENObjectIsInstance(self);
+
+        if assigned( protoinstance ) then begin
+
+            // instance of prototype created
+
+        	CopyPrototypeRTTI(protoinstance);
+            AddRTTIProperties();
+
+		end else begin
+
+        	// prototype created
+	 		AddRTTIMethods();
+	 		AddRTTIProperties();
+
+		end;
+
+		InvalidateStructure;
+	end;
+
 end;
 
 procedure TBESENNativeObject.FinalizeObject;
+var i:integer;
 begin
  if Initialized then begin
   Initialized:=false;
@@ -353,14 +397,84 @@ begin
    PropList:=nil;
    PropListLen:=0;
   end;
+  // Free all RTTI dispatcher wrappers created during InitializeObject
+  if assigned(Dispatchers) then begin
+   for i:=0 to Dispatchers.Count-1 do begin
+    TBESENRTTIDispatcher(Dispatchers[i]).Free;
+   end;
+   Dispatchers.Clear;
+  end;
  end;
+end;
+
+procedure TBESENNativeObject.CopyPrototypeRTTI( var fromobjectprototype: TBESENObject);
+var
+//	methodlist: TBESENNativeFunctionObjects;
+//	i: Integer;
+	Prop:TBESENObjectProperty;
+	tempfunction: TBESENObjectNativeFunction;
+    NewNative: TBESENNativeFunction;
+begin
+
+	// iterate TBESENObjectNativeFunction on prototype and set TBESENObjectNativeFunction.Native to this instance.
+
+	// OutputDebugStringW(pwidechar(wideformat('copying rtti method from prototype %s', [ fromobjectprototype.ClassName ])));
+
+	Prop:= fromobjectprototype.Properties.First;
+
+	while assigned(Prop) do begin
+
+    	// OutputDebugStringW(pwidechar(wideformat('prototype %s property %s valuetype %s', [ fromobjectprototype.ClassName, prop.Key, besenvaluetypetostring(Prop.Descriptor.Value.ValueType) ])));
+
+		if (boppVALUE in Prop.Descriptor.Presents) and (Prop.Descriptor.Value.ValueType=bvtOBJECT) and assigned(Prop.Descriptor.Value.Obj) then begin
+
+         	// OutputDebugStringW(pwidechar(wideformat('prototype %s property %s class %s', [ fromobjectprototype.ClassName, prop.Key, TObject(Prop.Descriptor.Value.Obj).ClassName ])));
+
+            // there should be no TBESENObjectDeclaredFunction here, or ignored.
+
+         	if (TObject(Prop.Descriptor.Value.Obj) is TBESENObjectNativeFunction) then begin
+
+	        	tempfunction:= TBESENObjectNativeFunction(Prop.Descriptor.Value.Obj);
+
+	            NewNative:= tempfunction.Native;
+
+	            // if address is on dispatcher, the dispatcher has to be copied.
+
+	            // TMethod(newnative).code - this can stay same as methods don't really move.
+	            TMethod(newnative).Data:= self; // this instance
+
+	            // dispatchers are then reused from prototype too, it is assumed a prototype will not be freed before child instances.
+
+	            // OutputDebugStringW(pwidechar(wideformat('copying rtti method %s ', [ Prop.Key ])));
+
+	            RegisterNativeFunction(Prop.Key, newnative, 0,[],false);
+	            // RegisterNativeFunction(RttiMethod.Name,NativeFunction,0,[],false);
+
+            end else if (TObject(Prop.Descriptor.Value.Obj) is TBESENObjectDeclaredFunction) then begin
+
+             	// ?
+
+			end else begin
+
+                // OutputDebugStringW(pwidechar(wideformat('what is class %s ', [ TObject(Prop.Descriptor.Value.Obj).ClassName ])));
+
+				DebugBreak;
+
+			end;
+		end;
+
+		Prop:=Prop.Next;
+	end;
+
+    // todo: copy PropListLen:=GetPropList(self,PropList); ?
+
 end;
 
 function TBESENNativeObject.GetProp(const Prop:TBESENObjectProperty;var V:TBESENValue;Throw:boolean):boolean;
 var Item:PPropInfo;
     O:TObject;
     Index:integer;
-begin                      
+begin
  result:=false;
  if not Initialized then begin
   exit;
@@ -664,7 +778,7 @@ begin
   result:=inherited DefineOwnPropertyEx(P,Descriptor,Throw,Current,Hash);
  end;
 end;
-                                
+
 procedure TBESENNativeObject.Construct(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue);
 begin
  AResult.ValueType:=bvtOBJECT;
@@ -742,3 +856,4 @@ begin
 end;
 
 end.
+
