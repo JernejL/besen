@@ -41,6 +41,8 @@ uses SysUtils,BESENConstants,BESENTypes,BESENValue,BESENBaseObject,
 
 type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:longint;var ResultValue:TBESENValue) of object;
 
+     TBESENNativeFunctionObjects=array of TObject;
+
      TBESENObjectPropertyContainer=class;
 
      TBESENObjectProperty=class(TBESENCollectorObject)
@@ -75,6 +77,8 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
 
      TBESENObjectPropertiesBuckets=array of TBESENObjectProperties;
 
+	 { TBESENObjectPropertyContainer }
+
      TBESENObjectPropertyContainer=class(TBESENCollectorObject)
       private
        procedure GrowAndRehashIfNeeded;
@@ -97,7 +101,9 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
        ArrayItemCount:longint;
        constructor Create(AInstance:TObject;ASorted:boolean;AObj:TBESENObject); overload;
        destructor Destroy; override;
-       procedure Clear;
+       procedure ClearProper;
+       procedure ClearDestructFast;
+
        procedure ArraySet(Index:longint;PropertyValue:TBESENObjectProperty);
        function ArrayGet(Index:longint):TBESENObjectProperty;
        procedure Sort(AIsArray:boolean);
@@ -176,6 +182,8 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
        function Get(PrototypeID:TBESENINT32;const Properties:TBESENObjectStructureProperties;OldStructure:TBESENObjectStructure):TBESENObjectStructure;
      end;
 
+	 { TBESENObject }
+
      TBESENObject=class(TBESENGarbageCollectorObject)
       private
        procedure SetPrototypeObject(NewPrototypeObject:TBESENObject);
@@ -200,6 +208,7 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
        destructor Destroy; override;
        function RebuildStructure:TBESENBoolean;
        procedure RegisterNativeFunction(const AName:TBESENSTRING;const ANative:TBESENNativeFunction;const Len:longint=0;const Attributes:TBESENObjectPropertyDescriptorAttributes=[];const AHasPrototypeProperty:longbool=false);
+       function GetRegisteredNativeFunctions: TBESENNativeFunctionObjects;
        function HasRecursivePrototypeChain:TBESENBoolean;
        procedure PutPrototype(const V:TBESENValue;Throw:TBESENBoolean);
        function OverwriteAccessor(const P:TBESENString;const Getter:TBESENObject=nil;const Setter:TBESENObject=nil;const Attributes:TBESENObjectPropertyDescriptorAttributes=[];Throw:TBESENBoolean=false):TBESENBoolean;
@@ -242,7 +251,6 @@ type TBESENNativeFunction=procedure(const ThisArgument:TBESENValue;Arguments:PPB
      end;
 
 procedure BESENCheckObjectCoercible(const v:TBESENValue; const Instance:Tobject;const InContext: Tobject; const Propertyname: tbesenstring); {$ifdef caninline}inline;{$endif}
-
 function BESENIsCallable(const v:TBESENValue):TBESENBoolean; {$ifdef caninline}inline;{$endif}
 
 implementation
@@ -519,7 +527,7 @@ begin
   BESENFreeAndNil(Enumerator);
   Enumerator:=NextEnumerator;
  end;
- Clear;
+ ClearDestructFast();
  SetLength(HashBuckets,0);
  SetLength(Items,0);
  ItemCount:=0;
@@ -529,12 +537,14 @@ begin
  inherited Destroy;
 end;
 
-procedure TBESENObjectPropertyContainer.Clear;
+procedure TBESENObjectPropertyContainer.ClearProper;
 var Hash:TBESENHash;
     Item,NextItem:TBESENObjectProperty;
     i:longint;
 begin
+
  Item:=First;
+
  while assigned(Item) do begin
   NextItem:=Item.Next;
   Item.Previous:=nil;
@@ -542,8 +552,10 @@ begin
   BESENFreeAndNil(Item);
   Item:=NextItem;
  end;
+
  First:=nil;
  Last:=nil;
+
  HashSize:=256;
  HashSizeMask:=HashSize-1;
  HashedItems:=0;
@@ -563,6 +575,57 @@ begin
  SetLength(ArrayBuckets,0);
  ArrayItemCount:=0;
  LastUsedItem:=nil;
+end;
+
+// TODO: a faster, destructor-only function.
+
+procedure TBESENObjectPropertyContainer.ClearDestructFast;
+var Hash:TBESENHash;
+    Item,NextItem:TBESENObjectProperty;
+    i:longint;
+begin
+	Item := First;
+
+	First := nil;
+	Last := nil;
+	LastUsedItem := nil;
+
+	HashSize := 256;
+	HashSizeMask := HashSize - 1;
+	HashedItems := 0;
+	HashBucketsUsed := 0;
+
+	SetLength(HashBuckets, HashSize);
+	for Hash := 0 to HashSizeMask do begin
+		HashBuckets[Hash].HashFirst := nil;
+		HashBuckets[Hash].HashLast := nil;
+	end;
+
+	SetLength(Items, 0);
+	ItemCount := 0;
+
+	SetLength(ArrayBuckets, 0);
+	ArrayItemCount := 0;
+
+	while Assigned(Item) do begin
+		NextItem := Item.Next;
+
+		Item.ID := -1;
+		Item.Index := -1;
+		Item.ArrayIndex := -1;
+
+		Item.Previous := nil;
+		Item.Next := nil;
+		Item.HashPrevious := nil;
+		Item.HashNext := nil;
+
+		Item.IsInSelfBalancedTree := false;
+		Item.SelfBalancedTreeNode := nil;
+
+		Item.Free;
+		Item := NextItem;
+	end;
+
 end;
 
 procedure TBESENObjectPropertyContainer.ArraySet(Index:longint;PropertyValue:TBESENObjectProperty);
@@ -1581,6 +1644,31 @@ begin
 
 end;
 
+function TBESENObject.GetRegisteredNativeFunctions:TBESENNativeFunctionObjects;
+var Prop:TBESENObjectProperty;
+    Count:integer;
+begin
+
+ SetLength(result, Properties.ItemCount); // maybe it'll be more initially.
+
+ Count:=0;
+ Prop:=Properties.First;
+ while assigned(Prop) do begin
+  if (boppVALUE in Prop.Descriptor.Presents) and
+     (Prop.Descriptor.Value.ValueType=bvtOBJECT) and
+     assigned(Prop.Descriptor.Value.Obj) and
+     (TObject(Prop.Descriptor.Value.Obj) is TBESENObjectNativeFunction) then begin
+   result[Count]:=TObject(Prop.Descriptor.Value.Obj);
+   inc(Count);
+  end;
+  Prop:=Prop.Next;
+ end;
+
+ setlength(result, count); // set proper length
+
+end;
+
+
 function TBESENObject.HasRecursivePrototypeChain:TBESENBoolean;
 var Obj:TBESENObject;
 begin
@@ -2486,16 +2574,22 @@ begin
 end;
 
 procedure TBESENObject.Finalize;
-var CurrentItem:TBESENObjectProperty;
+var
+    CurrentItem:TBESENObjectProperty;
 begin
- Prototype:=nil;
- CurrentItem:=Properties.GetFirst;
- while assigned(CurrentItem) do begin
-  TBESEN(Instance).GarbageCollector.FinalizeValue(CurrentItem.Descriptor.Value);
-  CurrentItem:=CurrentItem.Next;
- end;
- Properties.Clear;
- inherited Finalize;
+
+	Prototype:=nil;
+	CurrentItem:=Properties.GetFirst;
+
+    while assigned(CurrentItem) do begin
+		TBESEN(Instance).GarbageCollector.FinalizeValue(CurrentItem.Descriptor.Value); // CurrentItem.Descriptor.Value is set to BESENEmptyValue.
+		CurrentItem:=CurrentItem.Next;
+	end;
+
+	Properties.ClearDestructFast; // this takes time.
+
+    inherited Finalize;
+
 end;
 
 procedure TBESENObject.Mark;
@@ -2544,5 +2638,6 @@ function BESENIsCallable(const v:TBESENValue):TBESENBoolean; {$ifdef caninline}i
 begin
  result:=(v.ValueType=bvtOBJECT) and (assigned(v.Obj) and TBESENObject(v.Obj).HasCall);
 end;
+
 
 end.
