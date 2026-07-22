@@ -200,7 +200,7 @@ type
     GrayStack               : TBESENGCWorkStack;
     // OPT-C: slab arena
     Arena                   : TBESENGCArena;
-    IsSweeping              : longbool;
+    IsSweeping              : longbool; // why is this needed?
     State                   : TBESENGarbageCollectorState;
     TriggerCounter          : integer;
     MarkFactor              : integer;
@@ -238,6 +238,7 @@ type
     procedure Mark(AObject:TBESENGarbageCollectorObject);         {$ifdef caninline}inline;{$endif}
     procedure Flip;                                               {$ifdef caninline}inline;{$endif}
     procedure TriggerCollect;                                     {$ifdef caninline}inline;{$endif}
+    procedure GCFreeupObject( var WhichObject: TBESENGarbageCollectorObject );
     function  Collect:boolean;
     procedure CollectAll;
     procedure Use(AObject:TBESENGarbageCollectorObject);          {$ifdef caninline}inline;{$endif}
@@ -433,9 +434,9 @@ end;
 procedure TBESENGarbageCollectorObject.Finalize;
 begin
 
-  // debugbreak();
   // OPT-A: dependency-tree cleanup removed — trees no longer exist
   // Subclasses override this for their own cleanup (e.g. flushing ref cycles)
+
 end;
 
 procedure TBESENGarbageCollectorObject.Mark;
@@ -446,6 +447,7 @@ begin
   // OPT-A: DependsChildren walk removed.
   // Subclasses override Mark() to push their child pointers onto the GC's
   // gray work-stack via GrayIt().
+
 end;
 
 procedure TBESENGarbageCollectorObject.GarbageCollectorWriteBarrier;
@@ -810,14 +812,19 @@ begin
 end;
 
 procedure TBESENGarbageCollector.Clear;
-var CurrentObject : TBESENGarbageCollectorObject;
+var
+	CurrentObject : TBESENGarbageCollectorObject;
 begin
+
+  // finaliting calls TBESEN(Instance).GarbageCollector.FinalizeValue(Value);
   CurrentObject := First;
   while assigned(CurrentObject) do begin
     FinalizeObjectForSweeping(CurrentObject);
     CurrentObject := CurrentObject.GarbageCollectorNext;
   end;
+
   while assigned(First) do First.Free;
+
   First := nil;  Last := nil;
   RootObjectList.Clear;
   ProtectedObjectList.Clear;
@@ -945,12 +952,13 @@ begin
   if assigned(AObject) then AObject.Mark;
 end;
 
+
 procedure TBESENGarbageCollector.FinalizeObjectForSweeping(AObject:TBESENGarbageCollectorObject);
 begin
   if assigned(AObject) then AObject.Finalize;
 end;
 
-// OPT-B: Flip now swaps White ↔ Black pointer lists only.
+// OPT-B: Flip now swaps White & Black pointer lists only.
 // The gray work-stack is separate and cleared at the start of each cycle.
 procedure TBESENGarbageCollector.Flip;
 var Tmp : TBESENGarbageCollectorObjectList;
@@ -963,10 +971,22 @@ end;
 procedure TBESENGarbageCollector.TriggerCollect;
 begin
   inc(TriggerCounter);
-  if TriggerCounter >= TriggerCountPerCollect then begin
+
+  if ((TriggerCounter >= TriggerCountPerCollect) and (TriggerCountPerCollect <> BESEN_GC_TRIGGERCOUNT_NEVER)) then begin
     TriggerCounter := 0;
     Collect;
   end;
+end;
+
+procedure TBESENGarbageCollector.GCFreeupObject(var WhichObject: TBESENGarbageCollectorObject);
+begin
+
+	// OutputDebugStringw(pwidechar(wideformat('GC object %d: %s (white list: %d black %d root: %d) ', [ ptruint(WhichObject), WhichObject.ClassName, ord(WhiteObjectList.Contains(WhichObject)),  ord(BlackObjectList.Contains(WhichObject)), ord(RootObjectList.Contains(WhichObject)) ] )));
+
+    WhichObject.Free;
+
+    // This is preparation for multithreaded class deletion. later a thread can be introduced to free up the objects.
+
 end;
 
 //=============================================================================
@@ -978,7 +998,9 @@ var
   MarkCount  : NativeInt;
   Current    : PBESENPointerSelfBalancedTreeNode;
   Node       : TBESENASTNodeProgram;
-  NextObject : TBESENGarbageCollectorObject;
+  NextObject		: TBESENGarbageCollectorObject;
+  CurrentDeleting	: TBESENGarbageCollectorObject;
+  // DeleteList : Tlist;
 begin
   result := false;
   while true do begin
@@ -1080,17 +1102,34 @@ begin
         if not GrayStackEmpty then begin
           State := bgcsMARKGRAYS;
         end else begin
+
           // Pass 2: finalize + free all remaining whites
+          // finaliting calls TBESEN(Instance).GarbageCollector.FinalizeValue(Value);
+
           CurrentSweepObject := WhiteObjectList.First;
           while assigned(CurrentSweepObject) do begin
             FinalizeObjectForSweeping(CurrentSweepObject);
             CurrentSweepObject := CurrentSweepObject.GarbageCollectorObjectListNext;
           end;
+
+
+          //DeleteList:= Tlist.create();
+
           while assigned(WhiteObjectList.First) do begin
             IsSweeping := true;
-            WhiteObjectList.First.Free;
+
+            //DeleteList.
+
+            CurrentDeleting:= WhiteObjectList.First;
+
+            GCFreeupObject( CurrentDeleting  );
+
+            if (WhiteObjectList.Contains(CurrentDeleting)) then
+	            WhiteObjectList.Remove(CurrentDeleting);
+
             IsSweeping := false;
           end;
+
           State := bgcsDONE;
         end;
       end;

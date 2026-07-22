@@ -61,7 +61,7 @@ type{$ifdef BESENSingleStringType}
      TBESENUTF8STRING=TBESENANSISTRING;
 {$endif}
 
-     TBESENUTF16STRING=widestring;
+     TBESENUTF16STRING= unicodestring;
 
      TBESENUTF32CHAR=longword;
 
@@ -223,20 +223,20 @@ end;
 procedure TBESENLocation.SetInfo(const line_number, Column_number, File_name: integer);
 begin
 
-  iLineNumber:=		line_number;
-  iColumnNumber:=    Column_number;
-  iFilename:=		file_name;
+	iLineNumber:=		line_number;
+	iColumnNumber:=    Column_number;
+	iFilename:=		file_name;
 
-  // ???OutputDebugStringa(pchar('SetLineLocation:' + TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name));
+	// ???OutputDebugStringa(pchar('SetLineLocation:' + TBESENASTNodeVariableDeclaration(TBESENASTNodeForInStatement(ToVisit).Variable).Identifier.Name));
 
 end;
 
 procedure TBESENLocation.copy(const from: TBESENLocation);
 begin
 
-  iLineNumber:=		from.iLineNumber;
-  iColumnNumber:=	from.iColumnNumber;
-  iFilename:=		from.iFilename; // todo: check if different from
+	iLineNumber:=		from.iLineNumber;
+	iColumnNumber:=	from.iColumnNumber;
+	iFilename:=		from.iFilename; // todo: check if different from
 
 end;
 

@@ -33,27 +33,31 @@ unit BESENBaseObject;
 
 interface
 
-uses BESENConstants,BESENTypes;
+uses BESENConstants, BESENTypes, Classes;
 
-type TBESENBaseObject=class(TObject)
-      public
-       Instance:TObject;
-       constructor Create(AInstance:TObject); overload; virtual;
-       destructor Destroy; override;
-     end;
+	{$RTTI EXPLICIT METHODS([vcPublic, vcPublished])}// all child classes will have public and published methods exposed via RTTI.
+
+type
+
+    TBESENBaseObject = class(TObject) // Tpersistent? - see https://github.com/BeRo1985/besen/issues/9#issuecomment-702574327
+	public
+		Instance: TObject; // instance of Tbesen.
+		constructor Create(AInstance: TObject); overload; virtual;
+		destructor Destroy; override;
+	end;
 
 implementation
 
-constructor TBESENBaseObject.Create(AInstance:TObject);
-begin
- inherited Create;
- Instance:=AInstance;
-end;
+	constructor TBESENBaseObject.Create(AInstance: TObject);
+	begin
+		inherited Create;
+		Instance := AInstance;
+	end;
 
-destructor TBESENBaseObject.Destroy;
-begin
- inherited Destroy;
-end;
+	destructor TBESENBaseObject.Destroy;
+	begin
+		inherited Destroy;
+	end;
 
 end.
  

@@ -1,5 +1,5 @@
 (*******************************************************************************
-                                 L I C E N S E
+								 L I C E N S E
 ********************************************************************************
 
 BESEN - A ECMAScript Fifth Edition Object Pascal Implementation
@@ -22,10 +22,10 @@ statement from your version.
 
 If you didn't receive a copy of the license, see <http://www.gnu.org/licenses/>
 or contact:
-      Free Software Foundation
-      675 Mass Ave
-      Cambridge, MA  02139
-      USA
+	  Free Software Foundation
+	  675 Mass Ave
+	  Cambridge, MA  02139
+	  USA
 
 *******************************************************************************)
 unit BESENLexer;
@@ -33,64 +33,62 @@ unit BESENLexer;
 
 interface
 
-uses TypInfo, BESENConstants,BESENTypes,BESENStringUtils,BESENBaseObject;
+uses TypInfo, BESENConstants,BESENTypes,BESENStringUtils,BESENBaseObject, BESENHashUtils;
 
-type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
+	type TBESENLexerTokenType = (
+		ltNONE,ltUNKNOWN,ltEOF,
 
-                           // Types
-                           lttIDENTIFIER,lttSTRING,lttINTEGER,lttFLOAT,
+		// Types
+		lttIDENTIFIER,lttSTRING,lttINTEGER,lttFLOAT,
 
-                           // Operators
-                           ltoASSIGNMENT,ltoBITWISEAND,ltoBITWISEANDASSIGNMENT,
-                           ltoBITWISENOT,ltoBITWISEOR,ltoBITWISEORASSIGNMENT,
-                           ltoBITWISEXOR,ltoBITWISEXORASSIGNMENT,ltoCLOSEBRACE,
-                           ltoCLOSEPAREN,ltoCLOSESQUARE,ltoCOLON,ltoCOMMA,
-                           ltoCONDITIONAL,ltoDIVIDE,ltoDIVIDEASSIGNMENT,ltoDOT,
-                           ltoEQUALEQUAL,ltoEQUALEQUALEQUAL,ltoGREATERTHAN,
-                           ltoGREATERTHANOREQUAL,ltoLESSTHAN,ltoLESSTHANOREQUAL,
-                           ltoLOGICALAND,ltoLOGICALNOT,ltoLOGICALOR,ltoMINUS,
-                           ltoMINUSASSIGNMENT,ltoMINUSMINUS,ltoMODULO,
-                           ltoMODULOASSIGNMENT,ltoMULTIPLY,
-                           ltoMULTIPLYASSIGNMENT,ltoNOTEQUAL,ltoNOTEQUALEQUAL,
-                           ltoOPENBRACE,ltoOPENPAREN,ltoOPENSQUARE,ltoPLUS,
-                           ltoPLUSASSIGNMENT,ltoPLUSPLUS,ltoSEMICOLON,
-                           ltoSHIFTLEFT,ltoSHIFTLEFTASSIGNMENT,ltoSHIFTRIGHT,
-                           ltoSHIFTRIGHTASSIGNMENT,ltoSHIFTRIGHTUNSIGNED,
-                           ltoSHIFTRIGHTUNSIGNEDASSIGNMENT,
+		// Operators
+		ltoASSIGNMENT,ltoBITWISEAND,ltoBITWISEANDASSIGNMENT,
+		ltoBITWISENOT,ltoBITWISEOR,ltoBITWISEORASSIGNMENT,
+		ltoBITWISEXOR,ltoBITWISEXORASSIGNMENT,ltoCLOSEBRACE,
+		ltoCLOSEPAREN,ltoCLOSESQUARE,ltoCOLON,ltoCOMMA,
+		ltoCONDITIONAL,ltoDIVIDE,ltoDIVIDEASSIGNMENT,ltoDOT,
+		ltoEQUALEQUAL,ltoEQUALEQUALEQUAL,ltoGREATERTHAN,
+		ltoGREATERTHANOREQUAL,ltoLESSTHAN,ltoLESSTHANOREQUAL,
+		ltoLOGICALAND,ltoLOGICALNOT,ltoLOGICALOR,ltoMINUS,
+		ltoMINUSASSIGNMENT,ltoMINUSMINUS,ltoMODULO,
+		ltoMODULOASSIGNMENT,ltoMULTIPLY,
+		ltoMULTIPLYASSIGNMENT,ltoNOTEQUAL,ltoNOTEQUALEQUAL,
+		ltoOPENBRACE,ltoOPENPAREN,ltoOPENSQUARE,ltoPLUS,
+		ltoPLUSASSIGNMENT,ltoPLUSPLUS,ltoSEMICOLON,
+		ltoSHIFTLEFT,ltoSHIFTLEFTASSIGNMENT,ltoSHIFTRIGHT,
+		ltoSHIFTRIGHTASSIGNMENT,ltoSHIFTRIGHTUNSIGNED,
+		ltoSHIFTRIGHTUNSIGNEDASSIGNMENT,
 
-                           // Used keywords
-                           ltkBREAK,ltkCASE,ltkCATCH,ltkCONTINUE,ltkDEBUGGER,
-                           ltkDEFAULT,ltkDELETE,ltkDO,ltkELSE,ltkFALSE,
-                           ltkFINALLY,ltkFOR,ltkFUNCTION,ltkIF,ltkIN,
-                           ltkINSTANCEOF,ltkNEW,ltkNULL,ltkRETURN,ltkSWITCH,
-                           ltkTHIS,ltkTHROW,ltkTRUE,ltkTRY,ltkTYPEOF,ltkVAR,
-                           ltkVOID,ltkWHILE,ltkWITH,
+		// Used keywords
+		ltkBREAK,ltkCASE,ltkCATCH,ltkCONTINUE,ltkDEBUGGER,
+		ltkDEFAULT,ltkDELETE,ltkDO,ltkELSE,ltkFALSE,
+		ltkFINALLY,ltkFOR,ltkFUNCTION,ltkIF,ltkIN,
+		ltkINSTANCEOF,ltkNEW,ltkNULL,ltkRETURN,ltkSWITCH,
+		ltkTHIS,ltkTHROW,ltkTRUE,ltkTRY,ltkTYPEOF,ltkVAR,
+		ltkVOID,ltkWHILE,ltkWITH,
 
-                           // Reserved keywords
-                           ltkCLASS,ltkCONST,ltkENUM,ltkEXPORT,ltkEXTENDS,
-                           ltkIMPORT,ltkSUPER,
+		// Reserved keywords
+		ltkCLASS,ltkCONST,ltkENUM,ltkEXPORT,ltkEXTENDS,
+		ltkIMPORT,ltkSUPER,
 
-                           // Additional reserved keywords in strict mode
-                           ltkIMPLEMENTS,ltkINTERFACE,ltkLET,ltkPACKAGE,
-                           ltkPRIVATE,ltkPROTECTED,ltkPUBLIC,ltkSTATIC,
-                           ltkYIELD
-                          );
+		// Additional reserved keywords in strict mode
+		ltkIMPLEMENTS,ltkINTERFACE,ltkLET,ltkPACKAGE,
+		ltkPRIVATE,ltkPROTECTED,ltkPUBLIC,ltkSTATIC,
+		ltkYIELD
+	);
 
-     TBESENLexerTokenTypeSet=set of TBESENLexerTokenType;
+	TBESENLexerTokenTypeSet=set of TBESENLexerTokenType;
 
-	 { TBESENLexerToken }
+	{ TBESENLexerToken }
 
 	TBESENLexerToken=record
 		TokenType:TBESENLexerTokenType;
-
-        Name:TBESENString; // various
+		Name:TBESENString; // various
 		StringValue:TBESENString; // a shitton of options, from regex to strings and constants. JAVASCRIPT IS WEIRD.
 		IntValue:int64; // when lttINTEGER
 		FloatValue:double; // when lttFLOAT
-
 		GLineNumber:integer;
 		GLineColumn: integer;
-
 		LineEnd:longbool;
 		WasLineEnd:longbool;
 		OldChar:TBESENUTF32CHAR;
@@ -98,227 +96,237 @@ type TBESENLexerTokenType=(ltNONE,ltUNKNOWN,ltEOF,
 		OldPosition:integer;
 		OldCharEOF:longbool;
 		OldTokenEOF:longbool;
-
 		class operator Initialize (var Dest: TBESENLexerToken);
-        Procedure SetLineColumn(const setline: integer; const setcolumn: integer);
-
+		Procedure SetLineColumn(const setline: integer; const setcolumn: integer);
+	end;
+	
+	{ TBESENLexer }
+	
+	TBESENLexer=class(TBESENBaseObject)
+	private
+		procedure SetLineNumber(AValue: integer);
+	public
+		Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+		Position:integer; // character's offset in file
+		fLinePosition: integer; // beginning of last line's first character (start of line)
+		fLineNumber:integer;
+		CurrentChar:TBESENUTF32CHAR;
+		WarningProc:TBESENWarningProc;
+		CharEOF:longbool; // is at end of file - no more tokens
+		TokenEOF:longbool; // is last token - end of file? (is set from CharEOF)
+		LastWasLineEnd:longbool; // doesn't seem to be used - set only.
+		constructor Create(AInstance:TObject); overload; override;
+		destructor Destroy; override;
+		procedure NextChar;
+		procedure Restore(var Token:TBESENLexerToken);
+		function ParseRegExpLiteral(var Token:TBESENLexerToken;var ASource,AFlags:TBESENString):boolean;
+		function IsEOF:boolean;
+		procedure GetToken(var AResult:TBESENLexerToken);
+		function CurrentLine(): {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
+		function CurrentColumn: integer;
+		published
+		property LineNumber:integer read fLineNumber write SetLineNumber;
+		function LineColumn(): integer;
+		procedure NextLine;
 	end;
 
-	 { TBESENLexer }
+const
 
-     TBESENLexer=class(TBESENBaseObject)
-	 private
-		 procedure SetLineNumber(AValue: integer);
-      public
-       Source:{$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
-       Position:integer; // character's offset in file
-   	   fLinePosition: integer; // beginning of last line's first character (start of line)
-       fLineNumber:integer;
-       CurrentChar:TBESENUTF32CHAR;
-       WarningProc:TBESENWarningProc;
-       CharEOF:longbool; // is at end of file - no more tokens
-       TokenEOF:longbool; // is last token - end of file? (is set from CharEOF)
-       LastWasLineEnd:longbool; // doesn't seem to be used - set only.
-       constructor Create(AInstance:TObject); overload; override;
-       destructor Destroy; override;
-       procedure NextChar;
-       procedure Restore(var Token:TBESENLexerToken);
-       function ParseRegExpLiteral(var Token:TBESENLexerToken;var ASource,AFlags:TBESENString):boolean;
-       function IsEOF:boolean;
-       procedure GetToken(var AResult:TBESENLexerToken);
-       function CurrentLine(): {$ifdef BESENSingleStringType}TBESENSTRING{$else}TBESENUTF8STRING{$endif};
-       function CurrentColumn: integer;
-       published
-       property LineNumber:integer read fLineNumber write SetLineNumber;
-       function LineColumn(): integer;
-       procedure NextLine;
-     end;
+	BESENLexerReservedTokens:TBESENLexerTokenTypeSet		= [ ltkCLASS,ltkCONST,ltkENUM,ltkEXPORT,ltkEXTENDS,ltkIMPORT,ltkSUPER ];
+	BESENLexerStrictReservedTokens:TBESENLexerTokenTypeSet	= [ ltkIMPLEMENTS,ltkINTERFACE,ltkLET,ltkPACKAGE,ltkPRIVATE,ltkPROTECTED,ltkPUBLIC,ltkSTATIC,ltkYIELD ];
+	BESENLexerKeywordsTokens:TBESENLexerTokenTypeSet		= [ ltkBREAK..ltkYIELD ];
 
-const BESENLexerReservedTokens:TBESENLexerTokenTypeSet=[ltkCLASS,ltkCONST,ltkENUM,ltkEXPORT,ltkEXTENDS,ltkIMPORT,ltkSUPER];
+	BESENTokenStrings:array[TBESENLexerTokenType] of TBESENString = (
+    	'','','EOF',
 
-      BESENLexerStrictReservedTokens:TBESENLexerTokenTypeSet=[ltkIMPLEMENTS,ltkINTERFACE,ltkLET,ltkPACKAGE,ltkPRIVATE,
-                                                              ltkPROTECTED,ltkPUBLIC,ltkSTATIC,ltkYIELD];
+		// Types
+		'IDENTIFIER','STRING','INTEGER','FLOAT',
 
-      BESENLexerKeywordsTokens:TBESENLexerTokenTypeSet=[ltkBREAK..ltkYIELD];
+		// Operators
+		'==','&','&=',
+		'~','|','|=',
+		'^','^=','}',
+		')',']',':',',',
+		'?','/','/=','.',
+		'==','===','>',
+		'>=','<','<=',
+		'&&','!','||','-',
+		'-=','--','%',
+		'%=','*',
+		'*=','!=','!==',
+		'{','(','[','+',
+		'+=','++',';',
+		'<<','<<=','>>',
+		'>>=','>>>','>>>=',
 
-      BESENTokenStrings:array[TBESENLexerTokenType] of TBESENString=('','','EOF',
+		// Used keywords
+		'break','case','catch','continue','debugger',
+		'default','delete','do','else','false',
+		'finally','for','function','if','in',
+		'instanceof','new','null','return','switch',
+		'this','throw','true','try','typeof','var',
+		'void','while','with',
 
-                                                                     // Types
-                                                                     'IDENTIFIER','STRING','INTEGER','FLOAT',
+		// Reserved keywords
+		'class','const','enum','export','extends',
+		'import','super',
 
-                                                                     // Operators
-                                                                     '==','&','&=',
-                                                                     '~','|','|=',
-                                                                     '^','^=','}',
-                                                                     ')',']',':',',',
-                                                                     '?','/','/=','.',
-                                                                     '==','===','>',
-                                                                     '>=','<','<=',
-                                                                     '&&','!','||','-',
-                                                                     '-=','--','%',
-                                                                     '%=','*',
-                                                                     '*=','!=','!==',
-                                                                     '{','(','[','+',
-                                                                     '+=','++',';',
-                                                                     '<<','<<=','>>',
-                                                                     '>>=','>>>','>>>=',
-
-                                                                     // Used keywords
-                                                                     'break','case','catch','continue','debugger',
-                                                                     'default','delete','do','else','false',
-                                                                     'finally','for','function','if','in',
-                                                                     'instanceof','new','null','return','switch',
-                                                                     'this','throw','true','try','typeof','var',
-                                                                     'void','while','with',
-
-                                                                     // Reserved keywords
-                                                                     'class','const','enum','export','extends',
-                                                                     'import','super',
-
-                                                                     // Additional reserved keywords in strict mode
-                                                                     'implements','interface','let','package',
-                                                                     'private','protected','public','static',
-                                                                     'yield');
-
+		// Additional reserved keywords in strict mode
+		'implements','interface','let','package',
+		'private','protected','public','static',
+		'yield'
+	);
+	
 	function LexerTypeTostring(const tokentype: TBESENLexerTokenType): TBESENString;
-
+	
 implementation
 
-uses {$ifdef BESENEmbarcaderoNextGen}System.Character,{$endif}BESEN,BESENRegExp,BESENErrors,BESENNumberUtils, strutils;
+uses {$ifdef BESENEmbarcaderoNextGen}System.Character, {$endif}BESEN, BESENRegExp, BESENErrors, BESENNumberUtils, strutils;
 
-type TKeywordToken=ltkBREAK..ltkYIELD;
+type
+	TKeywordToken = ltkBREAK..ltkYIELD;
 
-     TKeyword=TKeywordToken;
+	TKeyword=TKeywordToken;
 
-     TKeywords=array of TKeyword;
+	TKeywords=array of TKeyword;
 
-const KeywordNames:array[TKeywordToken] of TBESENUTF16STRING=
-       (// Used keywords
-        'break','case','catch','continue','debugger',
-        'default','delete','do','else','false',
-        'finally','for','function','if','in',
-        'instanceof','new','null','return','switch',
-        'this','throw','true','try','typeof','var',
-        'void','while','with',
+	{$ifdef lexer_FindKeyword_use_hash}
+		TKeywordsHash=array of TBESENHash;
+	{$endif}
 
-        // Reserved keywords
-        'class','const','enum','export','extends',
-        'import','super',
+const KeywordNames:array[TKeywordToken] of TBESENUTF16STRING = (
 
-        // Additional reserved keywords in strict mode
-        'implements','interface','let','package',
-        'private','protected','public','static',
-        'yield');
+		// Used keywords
+		'break','case','catch','continue','debugger',
+		'default','delete','do','else','false',
+		'finally','for','function','if','in',
+		'instanceof','new','null','return','switch',
+		'this','throw','true','try','typeof','var',
+		'void','while','with',
 
-      Keywords:TKeywords=nil;
+		// Reserved keywords
+		'class','const','enum','export','extends',
+		'import','super',
+
+		// Additional reserved keywords in strict mode
+		'implements','interface','let','package',
+		'private','protected','public','static',
+		'yield'
+	);
+
+	Keywords:TKeywords=nil;
+
+	{$ifdef lexer_FindKeyword_use_hash}
+		KeywordsHash:TKeywordsHash=nil;
+	{$endif}
 
 function LexerTypeTostring(const tokentype: TBESENLexerTokenType): TBESENString;
 begin
 
 	case tokentype of
-	 	ltEOF: exit('ltEOF');
-	 	ltkBREAK: exit('ltkBREAK');
-	 	ltkCASE: exit('ltkCASE');
-	 	ltkCATCH: exit('ltkCATCH');
-	 	ltkCLASS: exit('ltkCLASS');
-	 	ltkCONST: exit('ltkCONST');
-	 	ltkCONTINUE: exit('ltkCONTINUE');
-	 	ltkDEBUGGER: exit('ltkDEBUGGER');
-	 	ltkDEFAULT: exit('ltkDEFAULT');
-	 	ltkDELETE: exit('ltkDELETE');
-	 	ltkDO: exit('ltkDO');
-	 	ltkELSE: exit('ltkELSE');
-	 	ltkENUM: exit('ltkENUM');
-	 	ltkEXPORT: exit('ltkEXPORT');
-	 	ltkEXTENDS: exit('ltkEXTENDS');
-	 	ltkFALSE: exit('ltkFALSE');
-	 	ltkFINALLY: exit('ltkFINALLY');
-	 	ltkFOR: exit('ltkFOR');
-	 	ltkFUNCTION: exit('ltkFUNCTION');
-	 	ltkIF: exit('ltkIF');
-	 	ltkIMPLEMENTS: exit('ltkIMPLEMENTS');
-	 	ltkIMPORT: exit('ltkIMPORT');
-	 	ltkIN: exit('ltkIN');
-	 	ltkINSTANCEOF: exit('ltkINSTANCEOF');
-	 	ltkINTERFACE: exit('ltkINTERFACE');
-	 	ltkLET: exit('ltkLET');
-	 	ltkNEW: exit('ltkNEW');
-	 	ltkNULL: exit('ltkNULL');
-	 	ltkPACKAGE: exit('ltkPACKAGE');
-	 	ltkPRIVATE: exit('ltkPRIVATE');
-	 	ltkPROTECTED: exit('ltkPROTECTED');
-	 	ltkPUBLIC: exit('ltkPUBLIC');
-	 	ltkRETURN: exit('ltkRETURN');
-	 	ltkSTATIC: exit('ltkSTATIC');
-	 	ltkSUPER: exit('ltkSUPER');
-	 	ltkSWITCH: exit('ltkSWITCH');
-	 	ltkTHIS: exit('ltkTHIS');
-	 	ltkTHROW: exit('ltkTHROW');
-	 	ltkTRUE: exit('ltkTRUE');
-	 	ltkTRY: exit('ltkTRY');
-	 	ltkTYPEOF: exit('ltkTYPEOF');
-	 	ltkVAR: exit('ltkVAR');
-	 	ltkVOID: exit('ltkVOID');
-	 	ltkWHILE: exit('ltkWHILE');
-	 	ltkWITH: exit('ltkWITH');
-	 	ltkYIELD: exit('ltkYIELD');
-	 	ltNONE: exit('ltNONE');
-	 	ltoASSIGNMENT: exit('ltoASSIGNMENT');
-	 	ltoBITWISEAND: exit('ltoBITWISEAND');
-	 	ltoBITWISEANDASSIGNMENT: exit('ltoBITWISEANDASSIGNMENT');
-	 	ltoBITWISENOT: exit('ltoBITWISENOT');
-	 	ltoBITWISEOR: exit('ltoBITWISEOR');
-	 	ltoBITWISEORASSIGNMENT: exit('ltoBITWISEORASSIGNMENT');
-	 	ltoBITWISEXOR: exit('ltoBITWISEXOR');
-	 	ltoBITWISEXORASSIGNMENT: exit('ltoBITWISEXORASSIGNMENT');
-	 	ltoCLOSEBRACE: exit('ltoCLOSEBRACE');
-	 	ltoCLOSEPAREN: exit('ltoCLOSEBRACE');
-	 	ltoCLOSESQUARE: exit('ltoCLOSESQUARE');
-	 	ltoCOLON: exit('ltoCOLON');
-	 	ltoCOMMA: exit('ltoCOMMA');
-	 	ltoCONDITIONAL: exit('ltoCONDITIONAL');
-	 	ltoDIVIDE: exit('ltoDIVIDE');
-	 	ltoDIVIDEASSIGNMENT: exit('ltoDIVIDEASSIGNMENT');
-	 	ltoDOT: exit('ltoDOT');
-	 	ltoEQUALEQUAL: exit('ltoEQUALEQUAL');
-	 	ltoEQUALEQUALEQUAL: exit('ltoEQUALEQUALEQUAL');
-	 	ltoGREATERTHAN: exit('ltoGREATERTHAN');
-	 	ltoGREATERTHANOREQUAL: exit('ltoGREATERTHANOREQUAL');
-	 	ltoLESSTHAN: exit('ltoLESSTHAN');
-	 	ltoLESSTHANOREQUAL: exit('ltoLESSTHANOREQUAL');
-	 	ltoLOGICALAND: exit('ltoLOGICALAND');
-	 	ltoLOGICALNOT: exit('ltoLOGICALNOT');
-	 	ltoLOGICALOR: exit('ltoLOGICALOR');
-	 	ltoMINUS: exit('ltoMINUS');
-	 	ltoMINUSASSIGNMENT: exit('ltoMINUSASSIGNMENT');
-	 	ltoMINUSMINUS: exit('ltoMINUSMINUS');
-	 	ltoMODULO: exit('ltoMODULO');
-	 	ltoMODULOASSIGNMENT: exit('ltoMODULOASSIGNMENT');
-	 	ltoMULTIPLY: exit('ltoMODULOASSIGNMENT');
-	 	ltoMULTIPLYASSIGNMENT: exit('ltoMULTIPLYASSIGNMENT');
-	 	ltoNOTEQUAL: exit('ltoNOTEQUAL');
-	 	ltoNOTEQUALEQUAL: exit('ltoNOTEQUALEQUAL');
-	 	ltoOPENBRACE: exit('ltoOPENBRACE');
-	 	ltoOPENPAREN: exit('ltoOPENPAREN');
-	 	ltoOPENSQUARE: exit('ltoOPENSQUARE');
-	 	ltoPLUS: exit('ltoPLUS');
-	 	ltoPLUSASSIGNMENT: exit('ltoPLUSASSIGNMENT');
-	 	ltoPLUSPLUS: exit('');
-	 	ltoSEMICOLON: exit('ltoSEMICOLON');
-	 	ltoSHIFTLEFT: exit('ltoSHIFTLEFT');
-	 	ltoSHIFTLEFTASSIGNMENT: exit('ltoSHIFTLEFTASSIGNMENT');
-	 	ltoSHIFTRIGHT: exit('ltoSHIFTRIGHT');
-	 	ltoSHIFTRIGHTASSIGNMENT: exit('ltoSHIFTRIGHTASSIGNMENT');
-	 	ltoSHIFTRIGHTUNSIGNED: exit('ltoSHIFTRIGHTUNSIGNED');
-	 	ltoSHIFTRIGHTUNSIGNEDASSIGNMENT: exit('ltoSHIFTRIGHTUNSIGNEDASSIGNMENT');
-	 	lttFLOAT: exit('lttFLOAT');
-	 	lttIDENTIFIER: exit('lttIDENTIFIER');
-	 	lttINTEGER: exit('lttINTEGER');
-	 	lttSTRING: exit('lttSTRING');
-	 	ltUNKNOWN : exit('ltUNKNOWN ');
+		ltEOF: exit('ltEOF');
+		ltkBREAK: exit('ltkBREAK');
+		ltkCASE: exit('ltkCASE');
+		ltkCATCH: exit('ltkCATCH');
+		ltkCLASS: exit('ltkCLASS');
+		ltkCONST: exit('ltkCONST');
+		ltkCONTINUE: exit('ltkCONTINUE');
+		ltkDEBUGGER: exit('ltkDEBUGGER');
+		ltkDEFAULT: exit('ltkDEFAULT');
+		ltkDELETE: exit('ltkDELETE');
+		ltkDO: exit('ltkDO');
+		ltkELSE: exit('ltkELSE');
+		ltkENUM: exit('ltkENUM');
+		ltkEXPORT: exit('ltkEXPORT');
+		ltkEXTENDS: exit('ltkEXTENDS');
+		ltkFALSE: exit('ltkFALSE');
+		ltkFINALLY: exit('ltkFINALLY');
+		ltkFOR: exit('ltkFOR');
+		ltkFUNCTION: exit('ltkFUNCTION');
+		ltkIF: exit('ltkIF');
+		ltkIMPLEMENTS: exit('ltkIMPLEMENTS');
+		ltkIMPORT: exit('ltkIMPORT');
+		ltkIN: exit('ltkIN');
+		ltkINSTANCEOF: exit('ltkINSTANCEOF');
+		ltkINTERFACE: exit('ltkINTERFACE');
+		ltkLET: exit('ltkLET');
+		ltkNEW: exit('ltkNEW');
+		ltkNULL: exit('ltkNULL');
+		ltkPACKAGE: exit('ltkPACKAGE');
+		ltkPRIVATE: exit('ltkPRIVATE');
+		ltkPROTECTED: exit('ltkPROTECTED');
+		ltkPUBLIC: exit('ltkPUBLIC');
+		ltkRETURN: exit('ltkRETURN');
+		ltkSTATIC: exit('ltkSTATIC');
+		ltkSUPER: exit('ltkSUPER');
+		ltkSWITCH: exit('ltkSWITCH');
+		ltkTHIS: exit('ltkTHIS');
+		ltkTHROW: exit('ltkTHROW');
+		ltkTRUE: exit('ltkTRUE');
+		ltkTRY: exit('ltkTRY');
+		ltkTYPEOF: exit('ltkTYPEOF');
+		ltkVAR: exit('ltkVAR');
+		ltkVOID: exit('ltkVOID');
+		ltkWHILE: exit('ltkWHILE');
+		ltkWITH: exit('ltkWITH');
+		ltkYIELD: exit('ltkYIELD');
+		ltNONE: exit('ltNONE');
+		ltoASSIGNMENT: exit('ltoASSIGNMENT');
+		ltoBITWISEAND: exit('ltoBITWISEAND');
+		ltoBITWISEANDASSIGNMENT: exit('ltoBITWISEANDASSIGNMENT');
+		ltoBITWISENOT: exit('ltoBITWISENOT');
+		ltoBITWISEOR: exit('ltoBITWISEOR');
+		ltoBITWISEORASSIGNMENT: exit('ltoBITWISEORASSIGNMENT');
+		ltoBITWISEXOR: exit('ltoBITWISEXOR');
+		ltoBITWISEXORASSIGNMENT: exit('ltoBITWISEXORASSIGNMENT');
+		ltoCLOSEBRACE: exit('ltoCLOSEBRACE');
+		ltoCLOSEPAREN: exit('ltoCLOSEBRACE');
+		ltoCLOSESQUARE: exit('ltoCLOSESQUARE');
+		ltoCOLON: exit('ltoCOLON');
+		ltoCOMMA: exit('ltoCOMMA');
+		ltoCONDITIONAL: exit('ltoCONDITIONAL');
+		ltoDIVIDE: exit('ltoDIVIDE');
+		ltoDIVIDEASSIGNMENT: exit('ltoDIVIDEASSIGNMENT');
+		ltoDOT: exit('ltoDOT');
+		ltoEQUALEQUAL: exit('ltoEQUALEQUAL');
+		ltoEQUALEQUALEQUAL: exit('ltoEQUALEQUALEQUAL');
+		ltoGREATERTHAN: exit('ltoGREATERTHAN');
+		ltoGREATERTHANOREQUAL: exit('ltoGREATERTHANOREQUAL');
+		ltoLESSTHAN: exit('ltoLESSTHAN');
+		ltoLESSTHANOREQUAL: exit('ltoLESSTHANOREQUAL');
+		ltoLOGICALAND: exit('ltoLOGICALAND');
+		ltoLOGICALNOT: exit('ltoLOGICALNOT');
+		ltoLOGICALOR: exit('ltoLOGICALOR');
+		ltoMINUS: exit('ltoMINUS');
+		ltoMINUSASSIGNMENT: exit('ltoMINUSASSIGNMENT');
+		ltoMINUSMINUS: exit('ltoMINUSMINUS');
+		ltoMODULO: exit('ltoMODULO');
+		ltoMODULOASSIGNMENT: exit('ltoMODULOASSIGNMENT');
+		ltoMULTIPLY: exit('ltoMODULOASSIGNMENT');
+		ltoMULTIPLYASSIGNMENT: exit('ltoMULTIPLYASSIGNMENT');
+		ltoNOTEQUAL: exit('ltoNOTEQUAL');
+		ltoNOTEQUALEQUAL: exit('ltoNOTEQUALEQUAL');
+		ltoOPENBRACE: exit('ltoOPENBRACE');
+		ltoOPENPAREN: exit('ltoOPENPAREN');
+		ltoOPENSQUARE: exit('ltoOPENSQUARE');
+		ltoPLUS: exit('ltoPLUS');
+		ltoPLUSASSIGNMENT: exit('ltoPLUSASSIGNMENT');
+		ltoPLUSPLUS: exit('');
+		ltoSEMICOLON: exit('ltoSEMICOLON');
+		ltoSHIFTLEFT: exit('ltoSHIFTLEFT');
+		ltoSHIFTLEFTASSIGNMENT: exit('ltoSHIFTLEFTASSIGNMENT');
+		ltoSHIFTRIGHT: exit('ltoSHIFTRIGHT');
+		ltoSHIFTRIGHTASSIGNMENT: exit('ltoSHIFTRIGHTASSIGNMENT');
+		ltoSHIFTRIGHTUNSIGNED: exit('ltoSHIFTRIGHTUNSIGNED');
+		ltoSHIFTRIGHTUNSIGNEDASSIGNMENT: exit('ltoSHIFTRIGHTUNSIGNEDASSIGNMENT');
+		lttFLOAT: exit('lttFLOAT');
+		lttIDENTIFIER: exit('lttIDENTIFIER');
+		lttINTEGER: exit('lttINTEGER');
+		lttSTRING: exit('lttSTRING');
+		ltUNKNOWN : exit('ltUNKNOWN ');
 	end;
 
-    exit('INVALID TOKEN!!!');
+	exit('INVALID TOKEN!!!');
 
 end;
 
@@ -327,25 +335,25 @@ end;
 class operator TBESENLexerToken.Initialize(var Dest: TBESENLexerToken);
 begin
 
-  with Dest do begin
-	  TokenType:=	ltNONE;
-	  //Name:=		'';
-	  StringValue:= '';
-	  IntValue:= 0;
-	  FloatValue:= 0.0;
-	  //LineNumber:= 90909090;
-	  //LineColumn:= 90909090;
+	with Dest do begin
+		TokenType:=	ltNONE;
+		//Name:=		'';
+		StringValue:= '';
+		IntValue:= 0;
+		FloatValue:= 0.0;
+		//LineNumber:= 90909090;
+		//LineColumn:= 90909090;
 
-      SetLineColumn(90909090, 90909090);
+		SetLineColumn(90909090, 90909090);
 
-	  //LineEnd:= false;
-	  WasLineEnd:= false;
-	  //OldChar:
-	  OldLineNumber:= 0;
-	  OldPosition:= 0;
-	  //OldCharEOF:= 0;
-	  //OldTokenEOF:= 0;
-  end;
+		//LineEnd:= false;
+		WasLineEnd:= false;
+		//OldChar:
+		OldLineNumber:= 0;
+		OldPosition:= 0;
+		//OldCharEOF:= 0;
+		//OldTokenEOF:= 0;
+	end;
 
 end;
 
@@ -359,1216 +367,1300 @@ end;
 
 procedure TBESENLexer.SetLineNumber(AValue: integer);
 begin
-	if fLineNumber= AValue then Exit;
+
+    if fLineNumber= AValue then Exit;
 	fLineNumber:= AValue;
 
 end;
 
 constructor TBESENLexer.Create(AInstance:TObject);
 begin
- inherited Create(AInstance);
- Source:='';
- Position:=1;
- LineNumber:=1;
- WarningProc:=nil;
- CharEOF:=false;
- TokenEOF:=false;
- LastWasLineEnd:=false;
+
+	inherited Create(AInstance);
+
+	Source:='';
+	Position:=1;
+	LineNumber:=1;
+	WarningProc:=nil;
+	CharEOF:=false;
+	TokenEOF:=false;
+	LastWasLineEnd:=false;
 end;
 
 destructor TBESENLexer.Destroy;
 begin
- Source:='';
- inherited Destroy;
+	Source:='';
+	inherited Destroy;
 end;
 
 function TBESENLexer.IsEOF:boolean;
 begin
- result:=TokenEOF;
+	result:=TokenEOF;
 end;
 
 procedure TBESENLexer.NextChar;
 {$ifdef BESENSingleStringType}
-var Len:integer;
+var
+	Len:integer;
 {$else}
-var b:byte;
+var
+    b:byte;
 {$endif}
 begin
- if (Position>=1) and (Position<=length(Source)) then begin
-{$ifdef BESENSingleStringType}
-{$ifdef BESENEmbarcaderoNextGen}
-  CurrentChar:=Char.ConvertToUTF32(s,Position-1,Len);
-  inc(Position,Len);
-{$else}
-  CurrentChar:=ord(Source[Position]);
-  inc(Position);
-  if (Position<=length(Source)) and ((SizeOf(Source[Position])=SizeOf(word)) and (((CurrentChar and $fc00)=$d800) and ((ord(Source[Position]) and $fc00)=$dc00))) then begin
-   // UTF16
-   CurrentChar:=(((CurrentChar and $3ff) shl 10) or (ord(Source[Position]) and $3ff))+$10000;
-   inc(Position);
-  end;
-{$endif}
-{$else}
-  b:=byte(Source[Position]);
-  if (b and $80)=0 then begin
-   CurrentChar:=b;
-   inc(Position);
-  end else if ((Position+1)<=length(Source)) and ((b and $e0)=$c0) and ((byte(Source[Position+1]) and $c0)=$80) then begin
-   CurrentChar:=((byte(Source[Position]) and $1f) shl 6) or (byte(Source[Position+1]) and $3f);
-   inc(Position,2);
-  end else if ((Position+2)<=length(Source)) and ((b and $f0)=$e0) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) then begin
-   CurrentChar:=((byte(Source[Position]) and $0f) shl 12) or ((byte(Source[Position+1]) and $3f) shl 6) or (byte(Source[Position+2]) and $3f);
-   inc(Position,3);
-  end else if ((Position+3)<=length(Source)) and ((b and $f8)=$f0) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) then begin
-   CurrentChar:=((byte(Source[Position]) and $07) shl 18) or ((byte(Source[Position+1]) and $3f) shl 12) or ((byte(Source[Position+2]) and $3f) shl 6) or (byte(Source[Position+3]) and $3f);
-   inc(Position,4);
-  end else if {$ifdef strictutf8}((TBESEN(Instance).Compatibility and COMPAT_UTF8_UNSAFE)<>0) and{$endif} ((Position+4)<=length(Source)) and ((b and $fc)=$f8) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) and ((byte(Source[Position+4]) and $c0)=$80) then begin
-   CurrentChar:=((byte(Source[Position]) and $03) shl 24) or ((byte(Source[Position+1]) and $3f) shl 18) or ((byte(Source[Position+2]) and $3f) shl 12) or ((byte(Source[Position+3]) and $3f) shl 6) or (byte(Source[Position+4]) and $3f);
-   inc(Position,5);
-  end else if {$ifdef strictutf8}((TBESEN(Instance).Compatibility and COMPAT_UTF8_UNSAFE)<>0) and{$endif} ((Position+5)<=length(Source)) and ((b and $fe)=$fc) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) and ((byte(Source[Position+4]) and $c0)=$80) and ((byte(Source[Position+5]) and $c0)=$80) then begin
-   CurrentChar:=((byte(Source[Position]) and $01) shl 30) or ((byte(Source[Position+1]) and $3f) shl 24) or ((byte(Source[Position+2]) and $3f) shl 18) or ((byte(Source[Position+3]) and $3f) shl 12) or ((byte(Source[Position+4]) and $3f) shl 6) or (byte(Source[Position+5]) and $3f);
-   inc(Position,6);
-  end else begin
-   CurrentChar:=$fffd;
-   inc(Position);
-  end;
-{$endif}
- end else begin
-  CurrentChar:=0;
-  CharEOF:=true;
- end;
+	if (Position>=1) and (Position<=length(Source)) then begin
+	{$ifdef BESENSingleStringType}
+		{$ifdef BESENEmbarcaderoNextGen}
+			CurrentChar:=Char.ConvertToUTF32(s,Position-1,Len);
+			inc(Position,Len);
+		{$else}
+				CurrentChar:=ord(Source[Position]);
+				inc(Position);
+				if (Position<=length(Source)) and ((SizeOf(Source[Position])=SizeOf(word)) and (((CurrentChar and $fc00)=$d800) and ((ord(Source[Position]) and $fc00)=$dc00))) then begin
+					// UTF16
+					CurrentChar:=(((CurrentChar and $3ff) shl 10) or (ord(Source[Position]) and $3ff))+$10000;
+					inc(Position);
+				end;
+		{$endif}
+	{$else}
+		b:=byte(Source[Position]);
+		if (b and $80)=0 then begin
+			CurrentChar:=b;
+			inc(Position);
+		end else if ((Position+1)<=length(Source)) and ((b and $e0)=$c0) and ((byte(Source[Position+1]) and $c0)=$80) then begin
+			CurrentChar:=((byte(Source[Position]) and $1f) shl 6) or (byte(Source[Position+1]) and $3f);
+			inc(Position,2);
+		end else if ((Position+2)<=length(Source)) and ((b and $f0)=$e0) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) then begin
+			CurrentChar:=((byte(Source[Position]) and $0f) shl 12) or ((byte(Source[Position+1]) and $3f) shl 6) or (byte(Source[Position+2]) and $3f);
+			inc(Position,3);
+		end else if ((Position+3)<=length(Source)) and ((b and $f8)=$f0) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) then begin
+			CurrentChar:=((byte(Source[Position]) and $07) shl 18) or ((byte(Source[Position+1]) and $3f) shl 12) or ((byte(Source[Position+2]) and $3f) shl 6) or (byte(Source[Position+3]) and $3f);
+			inc(Position,4);
+		end else if {$ifdef strictutf8}((TBESEN(Instance).Compatibility and COMPAT_UTF8_UNSAFE)<>0) and{$endif} ((Position+4)<=length(Source)) and ((b and $fc)=$f8) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) and ((byte(Source[Position+4]) and $c0)=$80) then begin
+			CurrentChar:=((byte(Source[Position]) and $03) shl 24) or ((byte(Source[Position+1]) and $3f) shl 18) or ((byte(Source[Position+2]) and $3f) shl 12) or ((byte(Source[Position+3]) and $3f) shl 6) or (byte(Source[Position+4]) and $3f);
+			inc(Position,5);
+		end else if {$ifdef strictutf8}((TBESEN(Instance).Compatibility and COMPAT_UTF8_UNSAFE)<>0) and{$endif} ((Position+5)<=length(Source)) and ((b and $fe)=$fc) and ((byte(Source[Position+1]) and $c0)=$80) and ((byte(Source[Position+2]) and $c0)=$80) and ((byte(Source[Position+3]) and $c0)=$80) and ((byte(Source[Position+4]) and $c0)=$80) and ((byte(Source[Position+5]) and $c0)=$80) then begin
+			CurrentChar:=((byte(Source[Position]) and $01) shl 30) or ((byte(Source[Position+1]) and $3f) shl 24) or ((byte(Source[Position+2]) and $3f) shl 18) or ((byte(Source[Position+3]) and $3f) shl 12) or ((byte(Source[Position+4]) and $3f) shl 6) or (byte(Source[Position+5]) and $3f);
+			inc(Position,6);
+		end else begin
+			CurrentChar:=$fffd;
+			inc(Position);
+		end;
+	{$endif}
+	end else begin
+		CurrentChar:=0;
+		CharEOF:=true;
+	end;
 end;
 
 procedure TBESENLexer.Restore(var Token:TBESENLexerToken);
 begin
- Position:=Token.OldPosition;
- LineNumber:=Token.OldLineNumber;
- CurrentChar:=Token.OldChar;
- CharEOF:=Token.OldCharEOF;
- TokenEOF:=Token.OldTokenEOF;
+
+	Position:=		Token.OldPosition;
+	LineNumber:=	Token.OldLineNumber;
+	CurrentChar:=	Token.OldChar;
+	CharEOF:=		Token.OldCharEOF;
+	TokenEOF:=		Token.OldTokenEOF;
+
 end;
 
 function TBESENLexer.ParseRegExpLiteral(var Token:TBESENLexerToken;var ASource,AFlags:TBESENString):boolean;
-var InCharClass,fg,fi,fm:boolean;
-    RegExpFlags:TBESENRegExpFlags;
+var
+	InCharClass,fg,fi,fm:boolean;
+	RegExpFlags:TBESENRegExpFlags;
 begin
- result:=false;
- ASource:='';
- AFlags:='';
- InCharClass:=false;
- while not CharEOF do begin
-  NextChar;
-  case CurrentChar of
-   $00,$0a,$0d,$2028,$2029:begin
-    exit;
-   end;
-   ord('\'):begin
-    ASource:=ASource+BESENUTF32CHARToUTF16(CurrentChar);
-    NextChar;
-   end;
-   ord('['):begin
-    InCharClass:=true;
-   end;
-   ord(']'):begin
-    InCharClass:=false;
-   end;
-   ord('/'):begin
-    if not InCharClass then begin
-     break;
-    end;
-   end;
-  end;
-  ASource:=ASource+BESENUTF32CHARToUTF16(CurrentChar);
- end;
- if (not CharEOF) and (CurrentChar=ord('/')) then begin
-  NextChar;
- end else begin
-  raise EBESENSyntaxError.Create('unterminated regex');
- end;
- AFlags:='';
- fg:=false;
- fi:=false;
- fm:=false;
- while not CharEOF do begin
-  case CurrentChar of
-   ord('g'):begin
-    if fg then begin
-     raise EBESENSyntaxError.Create('Too many global regular expression flags');
-    end else begin
-     fg:=true;
-     AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
-     NextChar;
-    end;
-   end;
-   ord('i'):begin
-    if fi then begin
-     raise EBESENSyntaxError.Create('Too many ignorecase regular expression flags');
-    end else begin
-     fi:=true;
-     AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
-     NextChar;
-    end;
-   end;
-   ord('m'):begin
-    if fm then begin
-     raise EBESENSyntaxError.Create('Too many multiline regular expression flags');
-    end else begin
-     fm:=true;
-     AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
-     NextChar;
-    end;
-   end;
-   else begin
-    break;
-   end;
-  end;
- end;
- if BESENUnicodeIsLetter(CurrentChar) then begin
-  raise EBESENSyntaxError.Create('Unknown regular expression flag');
- end;
- RegExpFlags:=[];
- if fg then begin
-  RegExpFlags:=RegExpFlags+[brefGLOBAL];
- end;
- if fi then begin
-  RegExpFlags:=RegExpFlags+[brefIGNORECASE];
- end;
- if fm then begin
-  RegExpFlags:=RegExpFlags+[brefMULTILINE];
- end;
- try
-  TBESEN(Instance).RegExpCache.Get(ASource,RegExpFlags);
- except
-  raise EBESENSyntaxError.Create('Invalid regular expression');
- end;
- Token.StringValue:='/'+ASource+'/'+AFlags;
- result:=true;
+	result:=false;
+	ASource:='';
+	AFlags:='';
+	InCharClass:=false;
+
+	while not CharEOF do begin
+		NextChar;
+		case CurrentChar of
+			$00,$0a,$0d,$2028,$2029:begin
+				exit;
+			end;
+			ord('\'):begin
+				ASource:=ASource+BESENUTF32CHARToUTF16(CurrentChar);
+				NextChar;
+			end;
+			ord('['):begin
+				InCharClass:=true;
+			end;
+			ord(']'):begin
+				InCharClass:=false;
+			end;
+			ord('/'):begin
+				if not InCharClass then begin
+					break;
+				end;
+			end;
+		end;
+		ASource:= ASource+BESENUTF32CHARToUTF16(CurrentChar);
+	end;
+
+	if (not CharEOF) and (CurrentChar=ord('/')) then begin
+		NextChar;
+	end	else begin
+		raise EBESENSyntaxError.Create('unterminated regex');
+	end;
+
+	AFlags:='';
+	fg:=false;
+	fi:=false;
+	fm:=false;
+
+	while not CharEOF do begin
+		case CurrentChar of
+			ord('g'):begin
+				if fg then begin
+					raise EBESENSyntaxError.Create('Too many global regular expression flags');
+				end else begin
+					fg:=true;
+					AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
+					NextChar;
+				end;
+			end;
+			ord('i'):begin
+				if fi then begin
+					raise EBESENSyntaxError.Create('Too many ignorecase regular expression flags');
+				end else begin
+					fi:=true;
+					AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
+					NextChar;
+				end;
+			end;
+			ord('m'):begin
+				if fm then begin
+					raise EBESENSyntaxError.Create('Too many multiline regular expression flags');
+				end else begin
+					fm:=true;
+					AFlags:=AFlags+BESENUTF32CHARToUTF16(CurrentChar);
+					NextChar;
+				end;
+			end;
+			else begin
+				break;
+			end;
+		end;
+	end;
+
+	if BESENUnicodeIsLetter(CurrentChar) then begin
+		raise EBESENSyntaxError.Create('Unknown regular expression flag');
+	end;
+
+	RegExpFlags:=[];
+	if fg then begin
+		RegExpFlags:=RegExpFlags+[brefGLOBAL];
+	end;
+	if fi then begin
+		RegExpFlags:=RegExpFlags+[brefIGNORECASE];
+	end;
+	if fm then begin
+		RegExpFlags:=RegExpFlags+[brefMULTILINE];
+	end;
+
+	try
+		TBESEN(Instance).RegExpCache.Get(ASource,RegExpFlags);
+	except
+		raise EBESENSyntaxError.Create('Invalid regular expression');
+	end;
+
+	Token.StringValue:='/'+ASource+'/'+AFlags;
+	result:=true;
 end;
 
 procedure TBESENLexer.GetToken(var AResult:TBESENLexerToken);
-var c:TBESENUTF32CHAR;
-    v:longword;
- procedure AddError(const Msg:TBESENSTRING);
- begin
-  TBESEN(Instance).codelocation_SetInfo(LineNumber, CurrentColumn, TBESEN(Instance).CurrentFile, 'lexer'); // was FilenameSet
+var
+    c:TBESENUTF32CHAR;
+	v:longword;
 
-  raise EBESENSyntaxError.CreateUTF16(Msg);
- end;
- procedure AddWarning(const Msg:TBESENSTRING);
- begin
-  if assigned(WarningProc) then begin
-   WarningProc(LineNumber,Msg);
-  end;
- end;
- procedure ParseNumber(c:widechar;var Token:TBESENLexerToken);
- var s:TBESENString;
-     HasDigits:boolean;
- begin
-  Token.TokenType:=ltUNKNOWN;
+	procedure AddError(const Msg:TBESENSTRING);
+	begin
+		TBESEN(Instance).codelocation_SetInfo(LineNumber, CurrentColumn, TBESEN(Instance).CurrentFile, 'lexer'); // was FilenameSet
 
-  HasDigits:=false;
+		raise EBESENSyntaxError.CreateUTF16(Msg);
+	end;
 
-  s:='';
+	 procedure AddWarning(const Msg:TBESENSTRING);
+	 begin
+		if assigned(WarningProc) then begin
+			WarningProc(LineNumber,Msg);
+		end;
+	 end;
 
-  if c='.' then begin
-   if (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) then begin
-    s:=s+'.';
+	procedure ParseNumber(c:widechar;var Token:TBESENLexerToken);
+	var
+    	s:TBESENString;
+		HasDigits:boolean;
+	begin
+		Token.TokenType:=ltUNKNOWN;
 
-    while (not CharEOF) and (CurrentChar=ord('0')) do begin
-     s:=s+widechar(CurrentChar);
-     NextChar;
-    end;
+		HasDigits:=false;
 
-    while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
-     s:=s+widechar(CurrentChar);
-     NextChar;
-    end;
+		s:='';
 
-    if (not CharEOF) and ((CurrentChar=ord('e')) or (CurrentChar=ord('E'))) then begin
-     s:=s+widechar(CurrentChar);
-     NextChar;
-     if (not CharEOF) and ((CurrentChar=ord('+')) or (CurrentChar=ord('-'))) then begin
-      s:=s+widechar(CurrentChar);
-      NextChar;
-     end;
-     while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
-      s:=s+widechar(CurrentChar);
-      NextChar;
-     end;
-    end;
+		if c = '.' then begin
+			if (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) then begin
+				s:=s+'.';
 
-    Token.TokenType:=lttFLOAT;
-    Token.FloatValue:=BESENStringToDouble('0'+s);
-    s:='';
-   end;
-   exit;
-  end;
+				while (not CharEOF) and (CurrentChar=ord('0')) do begin
+					s:=s+widechar(CurrentChar);
+					NextChar;
+				end;
 
-  if (not CharEOF) and (CurrentChar=ord('0')) then begin
-   NextChar;
-   case CurrentChar of
-    ord('x'),ord('X'):begin
-     NextChar;
-     s:='0x';
-     while not CharEOF do begin
-      case CurrentChar of
-       ord('a')..ord('f'),ord('A')..ord('F'),ord('0')..ord('9'):begin
-        s:=s+widechar(word(CurrentChar));
-        HasDigits:=true;
-        NextChar;
-       end;
-       else begin
-        break;
-       end;
-      end;
-     end;
-     if HasDigits then begin
-      Token.TokenType:=lttFLOAT;
-      Token.FloatValue:=BESENStringToDouble(s);
-     end;
-     s:='';
-     exit;
-    end;
-    ord('0')..ord('7'):begin
-     if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and not TBESEN(Instance).IsStrict then begin
-      s:='0';
-      while not CharEOF do begin
-       case CurrentChar of
-        ord('0')..ord('7'):begin
-         s:=s+widechar(word(CurrentChar));
-         HasDigits:=true;
-         NextChar;
-        end;
-        else begin
-         break;
-        end;
-       end;
-      end;
-      if HasDigits then begin
-       Token.TokenType:=lttFLOAT;
-       Token.FloatValue:=BESENStringToDouble(s);
-      end;
-      s:='';
-      exit;
-     end else begin
-      AddError('Bad number literal');
-     end;
-    end;
-    ord('8')..ord('9'):begin
-     AddError('Bad number literal');
-    end;
-    else begin
-     HasDigits:=true;
-     s:=s+widechar('0');
-    end;
-   end;
-  end;
+				while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
+					s:=s+widechar(CurrentChar);
+					NextChar;
+				end;
 
-  if TBESEN(Instance).IsStrict and HasDigits and ((not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9')))) then begin
-   AddError('Bad number literal');
-  end else begin
+				if (not CharEOF) and ((CurrentChar=ord('e')) or (CurrentChar=ord('E'))) then begin
+						s:=s+widechar(CurrentChar);
+						NextChar;
+					if (not CharEOF) and ((CurrentChar=ord('+')) or (CurrentChar=ord('-'))) then begin
+						s:=s+widechar(CurrentChar);
+						NextChar;
+					end;
+					while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
+						s:=s+widechar(CurrentChar);
+						NextChar;
+					end;
+				end;
 
-   while (not CharEOF) and (CurrentChar=ord('0')) do begin
-    s:=s+widechar(CurrentChar);
-    HasDigits:=true;
-    NextChar;
-   end;
+				Token.TokenType:=lttFLOAT;
+				Token.FloatValue:=BESENStringToDouble('0'+s);
+				s:='';
+			end;
 
-   if TBESEN(Instance).IsStrict and HasDigits and ((not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9')))) then begin
-    AddError('Bad number literal');
-   end else begin
+			exit;
+		end;
 
-    while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
-     s:=s+widechar(CurrentChar);
-     HasDigits:=true;
-     NextChar;
-    end;
+		if (not CharEOF) and (CurrentChar=ord('0')) then begin
+			NextChar;
+			case CurrentChar of
+				ord('x'),ord('X'): begin
+					NextChar;
+					s:='0x';
+					while not CharEOF do begin
+						case CurrentChar of
+							ord('a')..ord('f'),ord('A')..ord('F'),ord('0')..ord('9'):begin
+								s:=s+widechar(word(CurrentChar));
+								HasDigits:=true;
+								NextChar;
+							end;
+							else begin
+								break;
+							end;
+						end;
+					end;
 
-    if (not CharEOF) and (CurrentChar=ord('.')) then begin
-     s:=s+widechar(CurrentChar);
-     NextChar;
+					if HasDigits then begin
+						Token.TokenType:=lttFLOAT;
+						Token.FloatValue:=BESENStringToDouble(s);
+					end;
 
-     while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
-      s:=s+widechar(CurrentChar);
-      NextChar;
-      HasDigits:=true;
-     end;
-    end;
+					s:='';
+					exit;
+				end;
 
-    if HasDigits then begin
+				ord('0')..ord('7'):begin
+					if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and not TBESEN(Instance).IsStrict then begin
+						s:='0';
+						while not CharEOF do begin
+							case CurrentChar of
+								ord('0')..ord('7'):begin
+									s:=s+widechar(word(CurrentChar));
+									HasDigits:=true;
+									NextChar;
+								end;
+								else begin
+								break;
+								end;
+							end;
+						end;
+						if HasDigits then begin
+							Token.TokenType:=lttFLOAT;
+							Token.FloatValue:=BESENStringToDouble(s);
+						end;
+						s:='';
+						exit;
+					end else begin
+						AddError('Bad number literal');
+					end;
+				end;
+				ord('8')..ord('9'):begin
+					AddError('Bad number literal');
+				end;
+				else begin
+					HasDigits:=true;
+					s:=s+widechar('0');
+				end;
+			end;
+		end;
 
-     if (not CharEOF) and ((CurrentChar=ord('e')) or (CurrentChar=ord('E'))) then begin
-      HasDigits:=false;
-      s:=s+widechar(CurrentChar);
-      NextChar;
-      if (not CharEOF) and ((CurrentChar=ord('+')) or (CurrentChar=ord('-'))) then begin
-       s:=s+widechar(CurrentChar);
-       NextChar;
-      end;
-      if (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) then begin
-       HasDigits:=true;
-       while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
-        s:=s+widechar(CurrentChar);
-        NextChar;
-       end;
-      end else begin
-       exit;
-      end;
-     end;
+		if TBESEN(Instance).IsStrict and HasDigits and ((not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9')))) then begin
+			AddError('Bad number literal');
+		end else begin
 
-     if HasDigits then begin
-      Token.TokenType:=lttFLOAT;
-      Token.FloatValue:=BESENStringToDouble(s);
-     end;
-    end;
-   end;
-  end;
+			while (not CharEOF) and (CurrentChar=ord('0')) do begin
+				s:=s+widechar(CurrentChar);
+				HasDigits:=true;
+				NextChar;
+			end;
 
-  s:='';
- end;
- function FindKeyword(const Name:TBESENUTF16STRING):TBESENLexerTokenType;
- var LowIndex,HighIndex,MiddleIndex:integer;
- begin
-  result:=lttIDENTIFIER;
-  LowIndex:=0;
-  HighIndex:=length(Keywords)-1;
-  while LowIndex<=HighIndex do begin
-   case (HighIndex-LowIndex)+1 of
-    1:begin
-     if KeywordNames[Keywords[LowIndex]]=Name then begin
-      result:=Keywords[LowIndex];
-     end;
-    end;
-    2:begin
-     if KeywordNames[Keywords[LowIndex]]=Name then begin
-      result:=Keywords[LowIndex];
-     end else if KeywordNames[Keywords[HighIndex]]=Name then begin
-      result:=Keywords[HighIndex];
-     end;
-    end;
-    else begin
-     MiddleIndex:=(LowIndex+HighIndex) div 2;
-     if KeywordNames[Keywords[MiddleIndex]]=Name then begin
-      result:=Keywords[MiddleIndex];
-     end else if LowIndex<>HighIndex then begin
-      if KeywordNames[Keywords[MiddleIndex]]>Name then begin
-       HighIndex:=MiddleIndex-1;
-      end else begin
-       LowIndex:=MiddleIndex+1;
-      end;
-      continue;
-     end;
-    end;
-   end;
-   break;
-  end;
- end;
+			if TBESEN(Instance).IsStrict and HasDigits and ((not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9')))) then begin
+				AddError('Bad number literal');
+			end else begin
+
+				while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
+					s:=s+widechar(CurrentChar);
+					HasDigits:=true;
+					NextChar;
+				end;
+
+				if (not CharEOF) and (CurrentChar=ord('.')) then begin
+					s:=s+widechar(CurrentChar);
+					NextChar;
+
+					while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
+						s:=s+widechar(CurrentChar);
+						NextChar;
+						HasDigits:=true;
+					end;
+				end;
+
+				if HasDigits then begin
+
+					if (not CharEOF) and ((CurrentChar=ord('e')) or (CurrentChar=ord('E'))) then begin
+						HasDigits:=false;
+						s:=s+widechar(CurrentChar);
+						NextChar;
+
+						if (not CharEOF) and ((CurrentChar=ord('+')) or (CurrentChar=ord('-'))) then begin
+							s:=s+widechar(CurrentChar);
+							NextChar;
+						end;
+
+						if (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) then begin
+							HasDigits:=true;
+							while (not CharEOF) and ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) do begin
+								s:=s+widechar(CurrentChar);
+								NextChar;
+							end;
+						end else begin
+							exit;
+						end;
+					end;
+
+					if HasDigits then begin
+						Token.TokenType:=lttFLOAT;
+						Token.FloatValue:=BESENStringToDouble(s);
+					end;
+				end;
+			end;
+		end;
+
+		s:='';
+	end;
+
+	function FindKeyword(const Name:TBESENUTF16STRING):TBESENLexerTokenType;
+	var
+		LowIndex,HighIndex,MiddleIndex:integer;
+		{$ifdef lexer_FindKeyword_use_hash}
+		aHash: TBESENHash;
+		aHash1: TBESENHash;
+		{$endif}
+	begin
+		result:=lttIDENTIFIER;
+		LowIndex:=0;
+		HighIndex:=length(Keywords)-1;
+
+		{$ifdef lexer_FindKeyword_use_hash}
+		aHash:= BESENHashKey(Name);
+		while LowIndex<=HighIndex do begin
+			case (HighIndex-LowIndex)+1 of
+				1:begin
+					if KeywordsHash[ ord(Keywords[LowIndex]) ]=aHash then begin
+						result:=Keywords[LowIndex];
+					end;
+				end;
+				2:begin
+					if KeywordsHash[ ord(Keywords[LowIndex]) ]=aHash then begin
+						result:=Keywords[LowIndex];
+					end else if KeywordsHash[ ord(Keywords[HighIndex]) ]=aHash then begin
+						result:=Keywords[HighIndex];
+					end;
+				end;
+				else begin
+					MiddleIndex:=(LowIndex+HighIndex) div 2;
+
+					aHash1 :=KeywordsHash[ ord(Keywords[MiddleIndex]) ];
+
+					if aHash1=aHash then begin
+						result:=Keywords[MiddleIndex];
+					end else if LowIndex<>HighIndex then begin
+						if aHash1>aHash then begin
+							HighIndex:=MiddleIndex-1;
+						end else begin
+							LowIndex:=MiddleIndex+1;
+						end;
+						continue;
+					end;
+				end;
+			end;
+			break;
+		end;
+		{$else}
+		while LowIndex<=HighIndex do begin
+			case (HighIndex-LowIndex)+1 of
+				1:begin
+					if KeywordNames[Keywords[LowIndex]]=Name then begin
+						result:=Keywords[LowIndex];
+					end;
+				end;
+				2:begin
+					if KeywordNames[Keywords[LowIndex]]=Name then begin
+						result:=Keywords[LowIndex];
+					end else if KeywordNames[Keywords[HighIndex]]=Name then begin
+						result:=Keywords[HighIndex];
+					end;
+				end;
+				else begin
+					MiddleIndex:=(LowIndex+HighIndex) div 2;
+					if KeywordNames[Keywords[MiddleIndex]]=Name then begin
+						result:=Keywords[MiddleIndex];
+					end else if LowIndex<>HighIndex then begin
+						if KeywordNames[Keywords[MiddleIndex]]>Name then begin
+							HighIndex:=MiddleIndex-1;
+						end else begin
+							LowIndex:=MiddleIndex+1;
+						end;
+						continue;
+					end;
+				end;
+			end;
+			break;
+		end;
+
+		{$endif}
+	end;
+
+
 begin
- AResult.Name:='';
- AResult.StringValue:='';
- AResult.FloatValue:=0;
- AResult.IntValue:=0;
+	AResult.Name:='';
+	AResult.StringValue:='';
+	AResult.FloatValue:=0;
+	AResult.IntValue:=0;
 
- //AResult.LineNumber:= LineNumber;
- //AResult.LineColumn:= CurrentColumn;
+	//AResult.LineNumber:= LineNumber;
+	//AResult.LineColumn:= CurrentColumn;
 
- aresult.SetLineColumn(LineNumber, CurrentColumn);
+	aresult.SetLineColumn(LineNumber, CurrentColumn);
 
- // no file info - get it from besen class - current file.
+	// no file info - get it from besen class - current file.
 
- AResult.LineEnd:=false;
- AResult.WasLineEnd:=LastWasLineEnd;
- AResult.OldChar:=CurrentChar;
- AResult.OldLineNumber:=LineNumber;
- AResult.OldPosition:=Position;
- AResult.OldCharEOF:=CharEOF;
- AResult.OldTokenEOF:=TokenEOF;
+	AResult.LineEnd:=false;
+	AResult.WasLineEnd:=LastWasLineEnd;
+	AResult.OldChar:=CurrentChar;
+	AResult.OldLineNumber:=LineNumber;
+	AResult.OldPosition:=Position;
+	AResult.OldCharEOF:=CharEOF;
+	AResult.OldTokenEOF:=TokenEOF;
 
- LastWasLineEnd:=false;
- AResult.TokenType:=ltUNKNOWN;
+	LastWasLineEnd:=false;
+	AResult.TokenType:=ltUNKNOWN;
 
- while true do begin
+	while true do begin
 
-  if CharEOF then begin
-   TokenEOF:=true;
-   AResult.TokenType:=ltEOF;
-   break;
-  end else begin
+		if CharEOF then begin
+			TokenEOF:=true;
+			AResult.TokenType:=ltEOF;
+			break;
+		end else begin
 
-   // that is this? handles UTF8 BOM?
-   while BESENUnicodeIsParserWhiteSpace(CurrentChar) do begin
-    case CurrentChar of
-     0:begin
-      NextChar;
-      if not CharEOF then begin
-       CurrentChar:=1;
-      end;
-     end;
-     $000d:begin
-      NextChar;
-      if CurrentChar=$000a then begin
-       NextChar;
-      end;
-      NextLine();
-      AResult.WasLineEnd:=true;
-     end;
-     $000a,$2028,$2029:begin
-      NextChar;
-      NextLine();
-      AResult.WasLineEnd:=true;
-     end;
-     else begin
-      NextChar;
-     end;
-    end;
-   end;
+			// that is this? handles UTF8 BOM?
+			while BESENUnicodeIsParserWhiteSpace(CurrentChar) do begin
+				case CurrentChar of
+				0:begin
+					NextChar;
+					if not CharEOF then begin
+						CurrentChar:=1;
+					end;
+				end;
+				$000d:begin
+					NextChar;
+					if CurrentChar=$000a then begin
+						NextChar;
+					end;
+					NextLine();
+					AResult.WasLineEnd:=true;
+				end;
+				$000a,$2028,$2029:begin
+					NextChar;
+					NextLine();
+					AResult.WasLineEnd:=true;
+				end;
+				else begin
+					NextChar;
+				end;
+				end;
+			end;
 
-   if CharEOF then begin
-    AResult.TokenType:=ltEOF;
-    TokenEOF:=true;
-    break;
-   end else begin
+			if CharEOF then begin
+				AResult.TokenType:=ltEOF;
+				TokenEOF:=true;
+				break;
+			end else begin
 
-    // got a parsable token.
-    aresult.SetLineColumn(LineNumber, LineColumn() );
+				// got a parsable token.
+				aresult.SetLineColumn(LineNumber, LineColumn() );
 
-    AResult.OldChar:=CurrentChar;
-    AResult.OldLineNumber:=LineNumber;
-    AResult.OldPosition:=Position;
-    AResult.OldCharEOF:=CharEOF;
-    AResult.OldTokenEOF:=TokenEOF;
-    case CurrentChar of
-     0:begin
-     end;
-     ord('='):begin
-      NextChar;
-      case CurrentChar of
-       ord('='):begin
-        NextChar;
-        case CurrentChar of
-         ord('='):begin
-          NextChar;
-          AResult.TokenType:=ltoEQUALEQUALEQUAL;
-         end;
-         else begin
-          AResult.TokenType:=ltoEQUALEQUAL;
-         end;
-        end;
-       end;
-       else begin
-        AResult.TokenType:=ltoASSIGNMENT;
-       end;
-      end;
-     end;
-     ord('&'):begin
-      NextChar;
-      case CurrentChar of
-       ord('&'):begin
-        NextChar;
-        AResult.TokenType:=ltoLOGICALAND;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoBITWISEANDASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoBITWISEAND;
-       end;
-      end;
-     end;
-     ord('|'):begin
-      NextChar;
-      case CurrentChar of
-       ord('|'):begin
-        NextChar;
-        AResult.TokenType:=ltoLOGICALOR;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoBITWISEORASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoBITWISEOR;
-       end;
-      end;
-     end;
-     ord('^'):begin
-      NextChar;
-      case CurrentChar of
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoBITWISEXORASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoBITWISEXOR;
-       end;
-      end;
-     end;
-     ord('/'):begin
-      NextChar;
-      case CurrentChar of
-       ord('/'):begin
-        while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
-         NextChar;
-        end;
-        if BESENUnicodeIsLineTerminator(CurrentChar) then begin
-          NextLine();
-         AResult.WasLineEnd:=true;
-         if CurrentChar=$000d then begin
-          NextChar;
-          if CurrentChar=$000a then begin
-           NextChar;
-          end;
-         end else begin
-          NextChar;
-         end;
-        end;
-        continue;
-       end;
-       ord('*'):begin
-        NextChar;
-        c:=0;
-        while (not ((c=ord('*')) and (CurrentChar=ord('/')))) and not CharEOF do begin
-         if BESENUnicodeIsLineTerminator(CurrentChar) then begin
+				AResult.OldChar:=CurrentChar;
+				AResult.OldLineNumber:=LineNumber;
+				AResult.OldPosition:=Position;
+				AResult.OldCharEOF:=CharEOF;
+				AResult.OldTokenEOF:=TokenEOF;
 
-           NextLine();
+				case CurrentChar of
+					0:begin
 
-          AResult.WasLineEnd:=true;
-          if CurrentChar=$000d then begin
-           c:=CurrentChar;
-           NextChar;
-           if CurrentChar=$000a then begin
-            c:=CurrentChar;
-            NextChar;
-           end;
-          end else begin
-           c:=CurrentChar;
-           NextChar;
-          end;
-         end else begin
-          c:=CurrentChar;
-          NextChar;
-         end;
-        end;
-        if CurrentChar=ord('/') then begin
-         NextChar;
-        end;
-        continue;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoDIVIDEASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoDIVIDE;
-       end;
-      end;
-     end;
-     ord('>'):begin
-      NextChar;
-      case CurrentChar of
-       ord('>'):begin
-        NextChar;
-        case CurrentChar of
-         ord('>'):begin
-          NextChar;
-          case CurrentChar of
-           ord('='):begin
-            NextChar;
-            AResult.TokenType:=ltoSHIFTRIGHTUNSIGNEDASSIGNMENT;
-           end;
-           else begin
-            AResult.TokenType:=ltoSHIFTRIGHTUNSIGNED;
-           end;
-          end;
-         end;
-         ord('='):begin
-          NextChar;
-          AResult.TokenType:=ltoSHIFTRIGHTASSIGNMENT;
-         end;
-         else begin
-          AResult.TokenType:=ltoSHIFTRIGHT;
-         end;
-        end;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoGREATERTHANOREQUAL;
-       end;
-       else begin
-        AResult.TokenType:=ltoGREATERTHAN;
-       end;
-      end;
-     end;
-     ord('<'):begin
-      NextChar;
-      case CurrentChar of
-       ord('<'):begin
-        NextChar;
-        case CurrentChar of
-         ord('='):begin
-          NextChar;
-          AResult.TokenType:=ltoSHIFTLEFTASSIGNMENT;
-         end;
-         else begin
-          AResult.TokenType:=ltoSHIFTLEFT;
-         end;
-        end;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoLESSTHANOREQUAL;
-       end;
-       ord('!'):begin
-        if (TBESEN(Instance).Compatibility and COMPAT_SGMLCOM)<>0 then begin
-         if ((Position+2)<=length(Source)) and (Source[Position]='-') and (Source[Position+1]='-') then begin
-          while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
-           NextChar;
-          end;
-          if BESENUnicodeIsLineTerminator(CurrentChar) then begin
+					end;
+					ord('='):begin
+						NextChar;
+						case CurrentChar of
+							ord('='):begin
+								NextChar;
+								case CurrentChar of
+									ord('='):begin
+										NextChar;
+										AResult.TokenType:=ltoEQUALEQUALEQUAL;
+									end;
+									else begin
+										AResult.TokenType:=ltoEQUALEQUAL;
+									end;
+								end;
+							end;
+							else begin
+								AResult.TokenType:=ltoASSIGNMENT;
+							end;
+						end;
+					end;
+					ord('&'):begin
+						NextChar;
+						case CurrentChar of
+							ord('&'):begin
+								NextChar;
+								AResult.TokenType:=ltoLOGICALAND;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoBITWISEANDASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoBITWISEAND;
+							end;
+						end;
+					end;
+					ord('|'):begin
+						NextChar;
+						case CurrentChar of
+							ord('|'):begin
+								NextChar;
+								AResult.TokenType:=ltoLOGICALOR;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoBITWISEORASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoBITWISEOR;
+							end;
+						end;
+					end;
+					ord('^'):begin
+						NextChar;
+						case CurrentChar of
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoBITWISEXORASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoBITWISEXOR;
+							end;
+						end;
+					end;
+					ord('/'):begin
+						NextChar;
+						case CurrentChar of
+							ord('/'):begin
+								while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
+									NextChar;
+								end;
+								if BESENUnicodeIsLineTerminator(CurrentChar) then begin
+									NextLine();
+									AResult.WasLineEnd:=true;
+									if CurrentChar=$000d then begin
+										NextChar;
+										if CurrentChar=$000a then begin
+											NextChar;
+										end;
+									end else begin
+										NextChar;
+									end;
+								end;
+								continue;
+							end;
+							ord('*'):begin
+								NextChar;
+								c:=0;
+								while (not ((c=ord('*')) and (CurrentChar=ord('/')))) and not CharEOF do begin
+									if BESENUnicodeIsLineTerminator(CurrentChar) then begin
 
-            NextLine();
+										NextLine();
 
-           AResult.WasLineEnd:=true;
-           if CurrentChar=$000d then begin
-            NextChar;
-            if CurrentChar=$000a then begin
-             NextChar;
-            end;
-           end else begin
-            NextChar;
-           end;
-           continue;
-          end;
-         end else begin
-          AResult.TokenType:=ltoLESSTHAN;
-         end;
-        end else begin
-         AResult.TokenType:=ltoLESSTHAN;
-        end;
-       end;
-       else begin
-        AResult.TokenType:=ltoLESSTHAN;
-       end;
-      end;
-     end;
-     ord('-'):begin
-      NextChar;
-      case CurrentChar of
-       ord('-'):begin
-        NextChar;
-        if (TBESEN(Instance).Compatibility and COMPAT_SGMLCOM)<>0 then begin
-         if (Position=length(Source)) and (Source[Position]='>') then begin
-          while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
-           NextChar;
-          end;
-          if BESENUnicodeIsLineTerminator(CurrentChar) then begin
+										AResult.WasLineEnd:=true;
 
-           NextLine();
+										if CurrentChar=$000d then begin
+											c:=CurrentChar;
+											NextChar;
+											if CurrentChar=$000a then begin
+												c:=CurrentChar;
+												NextChar;
+											end;
+										end else begin
+											c:=CurrentChar;
+											NextChar;
+										end;
 
-           AResult.WasLineEnd:=true;
-           if CurrentChar=$000d then begin
-            NextChar;
-            if CurrentChar=$000a then begin
-             NextChar;
-            end;
-           end else begin
-            NextChar;
-           end;
-           continue;
-          end;
-         end else begin
-          AResult.TokenType:=ltoMINUSMINUS;
-         end;
-        end else begin
-         AResult.TokenType:=ltoMINUSMINUS;
-        end;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoMINUSASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoMINUS;
-       end;
-      end;
-     end;
-     ord('+'):begin
-      NextChar;
-      case CurrentChar of
-       ord('+'):begin
-        NextChar;
-        AResult.TokenType:=ltoPLUSPLUS;
-       end;
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoPLUSASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoPLUS;
-       end;
-      end;
-     end;
-     ord('%'):begin
-      NextChar;
-      case CurrentChar of
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoMODULOASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoMODULO;
-       end;
-      end;
-     end;
-     ord('*'):begin
-      NextChar;
-      case CurrentChar of
-       ord('='):begin
-        NextChar;
-        AResult.TokenType:=ltoMULTIPLYASSIGNMENT;
-       end;
-       else begin
-        AResult.TokenType:=ltoMULTIPLY;
-       end;
-      end;
-     end;
-     ord('!'):begin
-      NextChar;
-      case CurrentChar of
-       ord('='):begin
-        NextChar;
-        case CurrentChar of
-         ord('='):begin
-          NextChar;
-          AResult.TokenType:=ltoNOTEQUALEQUAL;
-         end else begin
-          AResult.TokenType:=ltoNOTEQUAL;
-         end;
-        end;
-       end;
-       else begin
-        AResult.TokenType:=ltoLOGICALNOT;
-       end;
-      end;
-     end;
-     ord('~'):begin
-      NextChar;
-      AResult.TokenType:=ltoBITWISENOT;
-     end;
-     ord('}'):begin
-      NextChar;
-      AResult.TokenType:=ltoCLOSEBRACE;
-     end;
-     ord(')'):begin
-      NextChar;
-      AResult.TokenType:=ltoCLOSEPAREN;
-     end;
-     ord(']'):begin
-      NextChar;
-      AResult.TokenType:=ltoCLOSESQUARE;
-     end;
-     ord('{'):begin
-      NextChar;
-      AResult.TokenType:=ltoOPENBRACE;
-     end;
-     ord('('):begin
-      NextChar;
-      AResult.TokenType:=ltoOPENPAREN;
-     end;
-     ord('['):begin
-      NextChar;
-      AResult.TokenType:=ltoOPENSQUARE;
-     end;
-     ord(':'):begin
-      NextChar;
-      AResult.TokenType:=ltoCOLON;
-     end;
-     ord(';'):begin
-      NextChar;
-      AResult.TokenType:=ltoSEMICOLON;
-     end;
-     ord(','):begin
-      NextChar;
-      AResult.TokenType:=ltoCOMMA;
-     end;
-     ord('?'):begin
-      NextChar;
-      AResult.TokenType:=ltoCONDITIONAL;
-     end;
-     ord('.'):begin
-      NextChar;
-      case CurrentChar of
-       ord('0')..ord('9'):begin
-        ParseNumber('.',AResult);
-       end;
-       else begin
-        AResult.TokenType:=ltoDOT;
-       end;
-      end;
-     end;
-     ord('0')..ord('9'):begin
-      ParseNumber(#0,AResult);
-     end;
-     ord('"'),ord(''''):begin
-      AResult.TokenType:=lttSTRING;
-      c:=CurrentChar;
-      NextChar;
-      AResult.StringValue:='';
-      while (CurrentChar<>c) and (Position<=length(Source)) do begin
-       case CurrentChar of
-        $000a,$000d,$2028,$2029:begin
-         if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
-          AddError('Unterminated string literal');
-          break;
-         end else begin
-          NextChar;
-         end;
-        end;
-        $fffe,$feff:begin
-         AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
-         NextChar;
-        end;
-        ord('\'):begin
-         NextChar;
-         case CurrentChar of
-          $000d:begin
-           AResult.StringValue:=AResult.StringValue+#$000d;
-           NextChar;
-           if CurrentChar=$000a then begin
-            AResult.StringValue:=AResult.StringValue+#$000a;
-            NextChar;
-           end;
-           fLinePosition:= Position;
-			NextLine();
-           AResult.WasLineEnd:=true;
-          end;
-          $000a,$2028,$2029:begin
-           AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
-           fLinePosition:= Position;
-			NextLine();
-           AResult.WasLineEnd:=true;
-           break;
-          end;
-          ord('b'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$0008;
-          end;
-          ord('t'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$0009;
-          end;
-          ord('n'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$000a;
-          end;
-          ord('v'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$000b;
-          end;
-          ord('f'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$000c;
-          end;
-          ord('r'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$000d;
-          end;
-          ord('s'):begin
-           NextChar;
-           AResult.StringValue:=AResult.StringValue+#$fffe;
-          end;
-          ord('0')..ord('7'):begin
-           if TBESEN(Instance).IsStrict then begin
-            AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
-            NextChar;
-            if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
-             raise EBESENSyntaxError.Create('Octals aren''t allowed in strict mode');
-            end;
-           end else begin
-            v:=CurrentChar-ord('0');
-            NextChar;
-            if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
-             v:=(v shl 3) or longword(CurrentChar-ord('0'));
-             NextChar;
-             if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
-              v:=(v shl 3) or longword(CurrentChar-ord('0'));
-              NextChar;
-             end;
-            end;
-            AResult.StringValue:=AResult.StringValue+widechar(word(v));
-           end;
-          end;
-          ord('x'):begin
-           if ((Position+1)<=length(Source)) and BESENIsHex(word(widechar(Source[Position]))) and BESENIsHex(word(widechar(Source[Position+1]))) then begin
-            NextChar;
-            v:=0;
-            if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-             case CurrentChar of
-              ord('0')..ord('9'):begin
-               v:=(v shl 4) or longword(CurrentChar-ord('0'));
-              end;
-              ord('a')..ord('f'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-              end;
-              ord('A')..ord('F'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-              end;
-             end;
-             NextChar;
-             if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-              case CurrentChar of
-               ord('0')..ord('9'):begin
-                v:=(v shl 4) or longword(CurrentChar-ord('0'));
-               end;
-               ord('a')..ord('f'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-               end;
-               ord('A')..ord('F'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-               end;
-              end;
-              NextChar;
-             end;
-            end;
-            AResult.StringValue:=AResult.StringValue+widechar(word(v));
-           end else begin
-            if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
-             AddError('Invalid escape char x');
-            end else begin
-             NextChar;
-             AResult.StringValue:=AResult.StringValue+'x';
-            end;
-           end;
-          end;
-          ord('u'):begin
-           if ((Position+3)<=length(Source)) and BESENIsHex(word(widechar(Source[Position]))) and BESENIsHex(word(widechar(Source[Position+1]))) and BESENIsHex(word(widechar(Source[Position+2]))) and BESENIsHex(word(widechar(Source[Position+3]))) then begin
-            NextChar;
-            v:=0;
-            if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-             case CurrentChar of
-              ord('0')..ord('9'):begin
-               v:=(v shl 4) or longword(CurrentChar-ord('0'));
-              end;
-              ord('a')..ord('f'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-              end;
-              ord('A')..ord('F'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-              end;
-             end;
-             NextChar;
-             if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-              case CurrentChar of
-               ord('0')..ord('9'):begin
-                v:=(v shl 4) or longword(CurrentChar-ord('0'));
-               end;
-               ord('a')..ord('f'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-               end;
-               ord('A')..ord('F'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-               end;
-              end;
-              NextChar;
-              if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-               case CurrentChar of
-                ord('0')..ord('9'):begin
-                 v:=(v shl 4) or longword(CurrentChar-ord('0'));
-                end;
-                ord('a')..ord('f'):begin
-                 v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-                end;
-                ord('A')..ord('F'):begin
-                 v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-                end;
-               end;
-               NextChar;
-               if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-                case CurrentChar of
-                 ord('0')..ord('9'):begin
-                  v:=(v shl 4) or longword(CurrentChar-ord('0'));
-                 end;
-                 ord('a')..ord('f'):begin
-                  v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-                 end;
-                 ord('A')..ord('F'):begin
-                  v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-                 end;
-                end;
-                NextChar;
-               end;
-              end;
-             end;
-            end;
-            AResult.StringValue:=AResult.StringValue+widechar(word(v));
-           end else begin
-            if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
-             AddError('Invalid escape char u');
-            end else begin
-             NextChar;
-             AResult.StringValue:=AResult.StringValue+'u';
-            end;
-           end;
-          end;
-          else begin
-           AResult.StringValue:=AResult.StringValue+BESENUTF32CHARToUTF16(CurrentChar);
-           NextChar;
-          end;
-         end;
-        end;
-        else begin
-         AResult.StringValue:=AResult.StringValue+BESENUTF32CHARToUTF16(CurrentChar);
-         NextChar;
-        end;
-       end;
-      end;
-      if CurrentChar=c then begin
-       NextChar;
-      end else begin
-       AddError('Unterminated string literal');
-      end;
-     end;
-     else begin
-      if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and (CurrentChar=ord('#')) then begin
-       NextChar;
-       AResult.Name:='function';
-       AResult.TokenType:=ltkFUNCTION;
-      end else if BESENUnicodeIsIDStart(CurrentChar) or (CurrentChar=ord('\')) then begin
-       AResult.Name:='';
-       while BESENUnicodeIsIDPart(CurrentChar) or (CurrentChar=ord('\')) do begin
-        if CurrentChar=ord('\') then begin
-         NextChar;
-         case CurrentChar of
-          ord('x'),ord('X'):begin
-           NextChar;
-           v:=0;
-           if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-            case CurrentChar of
-             ord('0')..ord('9'):begin
-              v:=(v shl 4) or longword(CurrentChar-ord('0'));
-             end;
-             ord('a')..ord('f'):begin
-              v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-             end;
-             ord('A')..ord('F'):begin
-              v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-             end;
-            end;
-            NextChar;
-            if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-             case CurrentChar of
-              ord('0')..ord('9'):begin
-               v:=(v shl 4) or longword(CurrentChar-ord('0'));
-              end;
-              ord('a')..ord('f'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-              end;
-              ord('A')..ord('F'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-              end;
-             end;
-             NextChar;
-            end;
-           end;
-           AResult.Name:=AResult.Name+widechar(word(v));
-          end;
-          ord('u'),ord('U'):begin
-           NextChar;
-           v:=0;
-           if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-            case CurrentChar of
-             ord('0')..ord('9'):begin
-              v:=(v shl 4) or longword(CurrentChar-ord('0'));
-             end;
-             ord('a')..ord('f'):begin
-              v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-             end;
-             ord('A')..ord('F'):begin
-              v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-             end;
-            end;
-            NextChar;
-            if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-             case CurrentChar of
-              ord('0')..ord('9'):begin
-               v:=(v shl 4) or longword(CurrentChar-ord('0'));
-              end;
-              ord('a')..ord('f'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-              end;
-              ord('A')..ord('F'):begin
-               v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-              end;
-             end;
-             NextChar;
-             if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-              case CurrentChar of
-               ord('0')..ord('9'):begin
-                v:=(v shl 4) or longword(CurrentChar-ord('0'));
-               end;
-               ord('a')..ord('f'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-               end;
-               ord('A')..ord('F'):begin
-                v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-               end;
-              end;
-              NextChar;
-              if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
-               case CurrentChar of
-                ord('0')..ord('9'):begin
-                 v:=(v shl 4) or longword(CurrentChar-ord('0'));
-                end;
-                ord('a')..ord('f'):begin
-                 v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
-                end;
-                ord('A')..ord('F'):begin
-                 v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
-                end;
-               end;
-               NextChar;
-              end;
-             end;
-            end;
-           end;
-           AResult.Name:=AResult.Name+widechar(word(v));
-          end;
-          else begin
-           AResult.Name:=AResult.Name+'\'+BESENUTF32CHARToUTF16(CurrentChar);
-           NextChar;
-          end;
-         end;
-        end else begin
-         AResult.Name:=AResult.Name+BESENUTF32CHARToUTF16(CurrentChar);
-         NextChar;
-        end;
-       end;
-       if (length(AResult.Name)>0) and ((word(widechar(AResult.Name[1]))=$200c) or (word(widechar(AResult.Name[1]))=$200d)) then begin
-        raise EBESENSyntaxError.Create('Invalid identifier because <ZWJ> and <ZWNJ> are prohibited as first character');
-       end;
-       AResult.TokenType:=FindKeyword(AResult.Name);
-       if AResult.TokenType in BESENLexerStrictReservedTokens then begin
-        if TBESEN(Instance).IsStrict then begin
-         raise EBESENSyntaxError.CreateUTF16('"'+AResult.Name+'" is a reserved keyword');
-        end else begin
-         AResult.TokenType:=lttIDENTIFIER;
-        end;
-       end;
-      end;
-     end;
-    end;
+									end else begin
+										c:=CurrentChar;
+										NextChar;
+									end;
+								end;
+								if CurrentChar=ord('/') then begin
+									NextChar;
+								end;
+								continue;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoDIVIDEASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoDIVIDE;
+							end;
+						end;
+					end;
+					ord('>'):begin
+						NextChar;
+						case CurrentChar of
+							ord('>'):begin
+								NextChar;
+								case CurrentChar of
+									ord('>'):begin
+										NextChar;
+										case CurrentChar of
+											ord('='):begin
+												NextChar;
+												AResult.TokenType:=ltoSHIFTRIGHTUNSIGNEDASSIGNMENT;
+											end;
+											else begin
+												AResult.TokenType:=ltoSHIFTRIGHTUNSIGNED;
+											end;
+										end;
+									end;
+									ord('='):begin
+										NextChar;
+										AResult.TokenType:=ltoSHIFTRIGHTASSIGNMENT;
+									end;
+									else begin
+										AResult.TokenType:=ltoSHIFTRIGHT;
+									end;
+								end;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoGREATERTHANOREQUAL;
+							end;
+							else begin
+								AResult.TokenType:=ltoGREATERTHAN;
+							end;
+						end;
+					end;
+					ord('<'):begin
+						NextChar;
+						case CurrentChar of
+							ord('<'):begin
+								NextChar;
+								case CurrentChar of
+									ord('='):begin
+										NextChar;
+										AResult.TokenType:=ltoSHIFTLEFTASSIGNMENT;
+									end;
+									else begin
+										AResult.TokenType:=ltoSHIFTLEFT;
+									end;
+								end;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoLESSTHANOREQUAL;
+							end;
+							ord('!'):begin
+								if (TBESEN(Instance).Compatibility and COMPAT_SGMLCOM)<>0 then begin
+									if ((Position+2)<=length(Source)) and (Source[Position]='-') and (Source[Position+1]='-') then begin
+										while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
+											NextChar;
+										end;
+										if BESENUnicodeIsLineTerminator(CurrentChar) then begin
 
-    // this is tested and seems to reasonably work, i get proper tokens at proper lines and columns.
+											NextLine();
 
-    // OutputDebugStringW(pwidechar( wideformat( 'Token %s at %d:%d name: name "%s" ', [ LexerTypeTostring( AResult.TokenType ), aresult.GLineNumber, aresult.GLineColumn, AResult.Name ] ) ));
+											AResult.WasLineEnd:=true;
+											if CurrentChar=$000d then begin
+												NextChar;
+												if CurrentChar=$000a then begin
+													NextChar;
+												end;
+											end else begin
+												NextChar;
+											end;
+											continue;
+										end;
+									end else begin
+									AResult.TokenType:=ltoLESSTHAN;
+									end;
+								end else begin
+								AResult.TokenType:=ltoLESSTHAN;
+								end;
+							end;
+							else begin
+							AResult.TokenType:=ltoLESSTHAN;
+							end;
+						end;
+					end;
+					ord('-'):begin
+						NextChar;
+						case CurrentChar of
+							ord('-'):begin
+								NextChar;
+								if (TBESEN(Instance).Compatibility and COMPAT_SGMLCOM)<>0 then begin
+									if (Position=length(Source)) and (Source[Position]='>') then begin
+										while ((CurrentChar<>0) and not BESENUnicodeIsLineTerminator(CurrentChar)) and not CharEOF do begin
+											NextChar;
+										end;
+										if BESENUnicodeIsLineTerminator(CurrentChar) then begin
 
-   end;
-   break;
-  end;
-  AResult.LineEnd:=BESENUnicodeIsLineTerminator(CurrentChar);
-  LastWasLineEnd:=AResult.LineEnd;
- end;
+											NextLine();
+
+											AResult.WasLineEnd:=true;
+											if CurrentChar=$000d then begin
+												NextChar;
+												if CurrentChar=$000a then begin
+													NextChar;
+												end;
+											end else begin
+												NextChar;
+											end;
+											continue;
+										end;
+									end else begin
+										AResult.TokenType:=ltoMINUSMINUS;
+									end;
+								end else begin
+									AResult.TokenType:=ltoMINUSMINUS;
+								end;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoMINUSASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoMINUS;
+							end;
+						end;
+					end;
+					ord('+'):begin
+						NextChar;
+						case CurrentChar of
+							ord('+'):begin
+								NextChar;
+								AResult.TokenType:=ltoPLUSPLUS;
+							end;
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoPLUSASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoPLUS;
+							end;
+						end;
+					end;
+					ord('%'):begin
+						NextChar;
+						case CurrentChar of
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoMODULOASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoMODULO;
+							end;
+						end;
+					end;
+					ord('*'):begin
+						NextChar;
+						case CurrentChar of
+							ord('='):begin
+								NextChar;
+								AResult.TokenType:=ltoMULTIPLYASSIGNMENT;
+							end;
+							else begin
+								AResult.TokenType:=ltoMULTIPLY;
+							end;
+						end;
+					end;
+					ord('!'):begin
+						NextChar;
+						case CurrentChar of
+							ord('='):begin
+								NextChar;
+								case CurrentChar of
+									ord('='):begin
+										NextChar;
+										AResult.TokenType:=ltoNOTEQUALEQUAL;
+									end else begin
+										AResult.TokenType:=ltoNOTEQUAL;
+									end;
+								end;
+							end;
+							else begin
+							AResult.TokenType:=ltoLOGICALNOT;
+							end;
+						end;
+					end;
+					ord('~'):begin
+						NextChar;
+						AResult.TokenType:=ltoBITWISENOT;
+					end;
+					ord('}'):begin
+						NextChar;
+						AResult.TokenType:=ltoCLOSEBRACE;
+					end;
+					ord(')'):begin
+						NextChar;
+						AResult.TokenType:=ltoCLOSEPAREN;
+					end;
+					ord(']'):begin
+						NextChar;
+						AResult.TokenType:=ltoCLOSESQUARE;
+					end;
+					ord('{'):begin
+						NextChar;
+						AResult.TokenType:=ltoOPENBRACE;
+					end;
+					ord('('):begin
+						NextChar;
+						AResult.TokenType:=ltoOPENPAREN;
+					end;
+					ord('['):begin
+						NextChar;
+						AResult.TokenType:=ltoOPENSQUARE;
+					end;
+					ord(':'):begin
+						NextChar;
+						AResult.TokenType:=ltoCOLON;
+					end;
+					ord(';'):begin
+						NextChar;
+						AResult.TokenType:=ltoSEMICOLON;
+					end;
+					ord(','):begin
+						NextChar;
+						AResult.TokenType:=ltoCOMMA;
+					end;
+					ord('?'):begin
+						NextChar;
+						AResult.TokenType:=ltoCONDITIONAL;
+					end;
+					ord('.'):begin
+						NextChar;
+						case CurrentChar of
+							ord('0')..ord('9'):begin
+								ParseNumber('.',AResult);
+							end;
+							else begin
+								AResult.TokenType:=ltoDOT;
+							end;
+						end;
+					end;
+					ord('0')..ord('9'):begin
+						ParseNumber(#0,AResult);
+					end;
+					ord('"'),ord(''''):begin
+						AResult.TokenType:=lttSTRING;
+						c:=CurrentChar;
+						NextChar;
+						AResult.StringValue:='';
+
+                        while (CurrentChar<>c) and (Position<=length(Source)) do begin
+							case CurrentChar of
+								$000a,$000d,$2028,$2029:begin
+									if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
+										AddError('Unterminated string literal');
+										break;
+									end else begin
+										NextChar;
+									end;
+								end;
+								$fffe,$feff:begin
+									AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
+									NextChar;
+								end;
+								ord('\'):begin
+									NextChar;
+									case CurrentChar of
+										$000d:begin
+											AResult.StringValue:=AResult.StringValue+#$000d;
+											NextChar;
+											if CurrentChar=$000a then begin
+												AResult.StringValue:=AResult.StringValue+#$000a;
+												NextChar;
+											end;
+											fLinePosition:= Position;
+											NextLine();
+											AResult.WasLineEnd:=true;
+										end;
+										$000a,$2028,$2029:begin
+											AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
+											fLinePosition:= Position;
+											NextLine();
+											AResult.WasLineEnd:=true;
+											break;
+										end;
+										ord('b'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$0008;
+										end;
+										ord('t'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$0009;
+										end;
+										ord('n'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$000a;
+										end;
+										ord('v'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$000b;
+										end;
+										ord('f'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$000c;
+										end;
+										ord('r'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$000d;
+										end;
+										ord('s'):begin
+											NextChar;
+											AResult.StringValue:=AResult.StringValue+#$fffe;
+										end;
+										ord('0')..ord('7'):begin
+											if TBESEN(Instance).IsStrict then begin
+												AResult.StringValue:=AResult.StringValue+widechar(word(CurrentChar));
+												NextChar;
+												if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
+													raise EBESENSyntaxError.Create('Octals aren''t allowed in strict mode');
+												end;
+											end else begin
+												v:=CurrentChar-ord('0');
+												NextChar;
+												if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
+													v:=(v shl 3) or longword(CurrentChar-ord('0'));
+													NextChar;
+													if (CurrentChar>=ord('0')) and (CurrentChar<=ord('7')) then begin
+														v:=(v shl 3) or longword(CurrentChar-ord('0'));
+														NextChar;
+													end;
+												end;
+												AResult.StringValue:=AResult.StringValue+widechar(word(v));
+											end;
+										end;
+										ord('x'):begin
+											if ((Position+1)<=length(Source)) and BESENIsHex(word(widechar(Source[Position]))) and BESENIsHex(word(widechar(Source[Position+1]))) then begin
+												NextChar;
+												v:=0;
+												if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+													case CurrentChar of
+														ord('0')..ord('9'):begin
+															v:=(v shl 4) or longword(CurrentChar-ord('0'));
+														end;
+														ord('a')..ord('f'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+														end;
+														ord('A')..ord('F'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+														end;
+													end;
+													NextChar;
+													if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+														case CurrentChar of
+															ord('0')..ord('9'):begin
+																v:=(v shl 4) or longword(CurrentChar-ord('0'));
+															end;
+																ord('a')..ord('f'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+															end;
+																ord('A')..ord('F'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+															end;
+														end;
+														NextChar;
+													end;
+												end;
+												AResult.StringValue:=AResult.StringValue+widechar(word(v));
+											end else begin
+												if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
+													AddError('Invalid escape char x');
+												end else begin
+													NextChar;
+													AResult.StringValue:=AResult.StringValue+'x';
+												end;
+											end;
+										end;
+										ord('u'):begin
+											if ((Position+3)<=length(Source)) and BESENIsHex(word(widechar(Source[Position]))) and BESENIsHex(word(widechar(Source[Position+1]))) and BESENIsHex(word(widechar(Source[Position+2]))) and BESENIsHex(word(widechar(Source[Position+3]))) then begin
+												NextChar;
+												v:=0;
+												if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+													case CurrentChar of
+														ord('0')..ord('9'):begin
+															v:=(v shl 4) or longword(CurrentChar-ord('0'));
+														end;
+														ord('a')..ord('f'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+														end;
+														ord('A')..ord('F'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+														end;
+													end;
+													NextChar;
+													if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+														case CurrentChar of
+															ord('0')..ord('9'):begin
+																v:=(v shl 4) or longword(CurrentChar-ord('0'));
+															end;
+															ord('a')..ord('f'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+															end;
+															ord('A')..ord('F'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+															end;
+														end;
+														NextChar;
+														if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+															case CurrentChar of
+																ord('0')..ord('9'):begin
+																	v:=(v shl 4) or longword(CurrentChar-ord('0'));
+																end;
+																ord('a')..ord('f'):begin
+																	v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+																end;
+																ord('A')..ord('F'):begin
+																	v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+																end;
+															end;
+															NextChar;
+															if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+																case CurrentChar of
+																	ord('0')..ord('9'):begin
+																		v:=(v shl 4) or longword(CurrentChar-ord('0'));
+																	end;
+																	ord('a')..ord('f'):begin
+																		v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+																	end;
+																	ord('A')..ord('F'):begin
+																		v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+																	end;
+																end;
+																NextChar;
+															end;
+														end;
+													end;
+												end;
+												AResult.StringValue:=AResult.StringValue+widechar(word(v));
+											end else begin
+												if (TBESEN(Instance).Compatibility and COMPAT_JS)=0 then begin
+													AddError('Invalid escape char u');
+												end else begin
+													NextChar;
+													AResult.StringValue:=AResult.StringValue+'u';
+												end;
+											end;
+										end;
+										else begin
+											AResult.StringValue:=AResult.StringValue+BESENUTF32CHARToUTF16(CurrentChar);
+											NextChar;
+										end;
+									end;
+								end;
+								else begin
+									AResult.StringValue:=AResult.StringValue+BESENUTF32CHARToUTF16(CurrentChar);
+									NextChar;
+								end;
+							end;
+						end;
+						if CurrentChar=c then begin
+							NextChar;
+						end else begin
+							AddError('Unterminated string literal');
+						end;
+					end;
+					else begin
+						if ((TBESEN(Instance).Compatibility and COMPAT_JS)<>0) and (CurrentChar=ord('#')) then begin
+							NextChar;
+							AResult.Name:='function';
+							AResult.TokenType:=ltkFUNCTION;
+						end else if BESENUnicodeIsIDStart(CurrentChar) or (CurrentChar=ord('\')) then begin
+							AResult.Name:='';
+							while BESENUnicodeIsIDPart(CurrentChar) or (CurrentChar=ord('\')) do begin
+								if CurrentChar=ord('\') then begin
+									NextChar;
+									case CurrentChar of
+										ord('x'),ord('X'):begin
+											NextChar;
+											v:=0;
+											if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+												case CurrentChar of
+													ord('0')..ord('9'):begin
+														v:=(v shl 4) or longword(CurrentChar-ord('0'));
+													end;
+													ord('a')..ord('f'):begin
+														v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+													end;
+													ord('A')..ord('F'):begin
+														v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+													end;
+												end;
+												NextChar;
+												if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+													case CurrentChar of
+														ord('0')..ord('9'):begin
+															v:=(v shl 4) or longword(CurrentChar-ord('0'));
+														end;
+														ord('a')..ord('f'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+														end;
+														ord('A')..ord('F'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+														end;
+													end;
+													NextChar;
+												end;
+											end;
+											AResult.Name:=AResult.Name+widechar(word(v));
+										end;
+										ord('u'),ord('U'):begin
+											NextChar;
+											v:=0;
+											if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+												case CurrentChar of
+													ord('0')..ord('9'):begin
+														v:=(v shl 4) or longword(CurrentChar-ord('0'));
+													end;
+													ord('a')..ord('f'):begin
+														v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+													end;
+													ord('A')..ord('F'):begin
+														v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+													end;
+												end;
+												NextChar;
+												if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+													case CurrentChar of
+														ord('0')..ord('9'):begin
+															v:=(v shl 4) or longword(CurrentChar-ord('0'));
+														end;
+														ord('a')..ord('f'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+														end;
+														ord('A')..ord('F'):begin
+															v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+														end;
+													end;
+													NextChar;
+													if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+														case CurrentChar of
+															ord('0')..ord('9'):begin
+																v:=(v shl 4) or longword(CurrentChar-ord('0'));
+															end;
+															ord('a')..ord('f'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+															end;
+															ord('A')..ord('F'):begin
+																v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+															end;
+														end;
+														NextChar;
+														if ((CurrentChar>=ord('0')) and (CurrentChar<=ord('9'))) or ((CurrentChar>=ord('a')) and (CurrentChar<=ord('f'))) or ((CurrentChar>=ord('A')) and (CurrentChar<=ord('F'))) then begin
+															case CurrentChar of
+																ord('0')..ord('9'):begin
+																	v:=(v shl 4) or longword(CurrentChar-ord('0'));
+																end;
+																ord('a')..ord('f'):begin
+																	v:=(v shl 4) or (longword(CurrentChar-ord('a'))+$a);
+																end;
+																ord('A')..ord('F'):begin
+																	v:=(v shl 4) or (longword(CurrentChar-ord('A'))+$a);
+																end;
+															end;
+															NextChar;
+														end;
+													end;
+												end;
+											end;
+											AResult.Name:=AResult.Name+widechar(word(v));
+										end;
+										else begin
+											AResult.Name:=AResult.Name+'\'+BESENUTF32CHARToUTF16(CurrentChar);
+											NextChar;
+										end;
+									end;
+								end else begin
+									AResult.Name:=AResult.Name+BESENUTF32CHARToUTF16(CurrentChar);
+									NextChar;
+								end;
+							end;
+
+                            if (length(AResult.Name)>0) and ((word(widechar(AResult.Name[1]))=$200c) or (word(widechar(AResult.Name[1]))=$200d)) then begin
+								raise EBESENSyntaxError.Create('Invalid identifier because <ZWJ> and <ZWNJ> are prohibited as first character');
+							end;
+
+							AResult.TokenType:=FindKeyword(AResult.Name);
+
+							if AResult.TokenType in BESENLexerStrictReservedTokens then begin
+								if TBESEN(Instance).IsStrict then begin
+									raise EBESENSyntaxError.CreateUTF16('"'+AResult.Name+'" is a reserved keyword');
+								end else begin
+									AResult.TokenType:=lttIDENTIFIER;
+								end;
+							end;
+
+						end;
+					end;
+				end;
+
+				// this is tested and seems to reasonably work, i get proper tokens at proper lines and columns.
+
+				// OutputDebugStringW(pwidechar( wideformat( 'Token %s at %d:%d name: name "%s" ', [ LexerTypeTostring( AResult.TokenType ), aresult.GLineNumber, aresult.GLineColumn, AResult.Name ] ) ));
+
+			end;
+			break;
+		end;
+
+		AResult.LineEnd:=BESENUnicodeIsLineTerminator(CurrentChar);
+		LastWasLineEnd:=AResult.LineEnd;
+	end;
 end;
 
 function TBESENLexer.CurrentLine(): TBESENUTF8STRING;
@@ -1576,9 +1668,9 @@ var
 	eolpos: integer;
 begin
 
- 	eolpos:= PosEx(#13, Source, fLinePosition);
+	eolpos:= PosEx(#13, Source, fLinePosition);
 
-    result:= Copy(Source, fLinePosition, eolpos - fLinePosition);
+	result:= Copy(Source, fLinePosition, eolpos - fLinePosition);
 
 	// Lexer.LineNumber
 
@@ -1587,10 +1679,9 @@ end;
 function TBESENLexer.CurrentColumn: integer;
 begin
 
+	result:= Position - fLinePosition;
 
- result:= Position - fLinePosition;
-
-    if (result > 1000) then
+	if (result > 1000) then
 		result:= Position - fLinePosition;
 
 end;
@@ -1606,56 +1697,100 @@ procedure TBESENLexer.NextLine;
 begin
 
 	LineNumber:= LineNumber + 1;
-    fLinePosition:= position;
+	fLinePosition:= position;
 
 end;
 
 procedure InitKeywords;
-var kt:TKeywordToken;
-    i:integer;
-    k:TKeyword;
+var
+	kt:TKeywordToken;
+	i:integer;
+	k:TKeyword;
+	sz:integer;
 begin
- SetLength(Keywords,(integer(high(TKeywordToken))-integer(low(TKeywordToken)))+1);
- i:=0;
- for kt:=low(TKeywordToken) to high(TKeywordToken) do begin
-  Keywords[i]:=kt;
-  inc(i);
- end;
- i:=0;
- while (i+1)<length(Keywords) do begin
-  if KeywordNames[Keywords[i]]>KeywordNames[Keywords[i+1]] then begin
-   k:=Keywords[i];
-   Keywords[i]:=Keywords[i+1];
-   Keywords[i+1]:=k;
-   if i>0 then begin
-    dec(i);
-   end else begin
-    inc(i);
-   end;
-  end else begin
-   inc(i);
-  end;
- end;
+
+	sz:=(integer(high(TKeywordToken))-integer(low(TKeywordToken)))+1;
+
+	SetLength(Keywords,sz);
+
+	{$ifdef lexer_FindKeyword_use_hash}
+		//tigra: add hash calc of keys
+		SetLength(KeywordsHash,sz);
+	{$endif}
+
+	i:=0;
+	for kt:=low(TKeywordToken) to high(TKeywordToken) do begin
+		Keywords[i]:=kt;
+
+		{$ifdef lexer_FindKeyword_use_hash}
+			// tigra: calc hash and store
+			KeywordsHash[i]:= BESENHashKey(KeywordNames[kt]);
+		{$endif}
+		inc(i);
+	end;
+
+	//sort keywords by keywordNames
+
+	{$ifdef lexer_FindKeyword_use_hash}
+		i:=0;
+		while (i+1)<length(Keywords) do begin
+			if KeywordsHash[ord(Keywords[i])]>KeywordsHash[ord(Keywords[i+1])] then begin
+				k:=Keywords[i];
+				Keywords[i]:=Keywords[i+1];
+				Keywords[i+1]:=k;
+				if i>0 then begin
+					dec(i);
+				end else begin
+					inc(i);
+				end;
+			end else begin
+				inc(i);
+			end;
+		end;
+	{$else}
+		i:=0;
+		while (i+1)<length(Keywords) do begin
+			if KeywordNames[Keywords[i]]>KeywordNames[Keywords[i+1]] then begin
+				k:=Keywords[i];
+				Keywords[i]:=Keywords[i+1];
+				Keywords[i+1]:=k;
+				if i>0 then begin
+					dec(i);
+				end else begin
+					inc(i);
+				end;
+			end else begin
+				inc(i);
+			end;
+		end;
+	{$endif}
+
 end;
 
 procedure DoneKeywords;
 begin
- SetLength(Keywords,0);
+	SetLength(Keywords,0);
+	
+	{$ifdef lexer_FindKeyword_use_hash}
+		SetLength(KeywordsHash,0);
+	{$endif}
 end;
 
 procedure InitBESEN;
 begin
- InitKeywords;
+	InitKeywords;
 end;
 
 procedure DoneBESEN;
 begin
- DoneKeywords;
+	DoneKeywords;
 end;
 
 initialization
- InitBESEN;
+	InitBESEN;
+
 finalization
- DoneBESEN;
+	DoneBESEN;
+
 end.
 

@@ -33,203 +33,204 @@ unit BESENObjectDeclaredFunction;
 
 interface
 
-uses BESENConstants,BESENTypes,BESENObject,BESENObjectFunction,BESENValue,BESENObjectPropertyDescriptor,
-     BESENLexicalEnvironment,BESENContext,BESENASTNodes;
+uses BESENConstants, BESENTypes, BESENObject, BESENObjectFunction, BESENValue, BESENObjectPropertyDescriptor,
+	BESENLexicalEnvironment, BESENContext, BESENASTNodes;
 
-type TBESENObjectDeclaredFunctionParameters=array of TBESENString;
+type TBESENObjectDeclaredFunctionParameters = array of TBESENString;
 
-     TBESENObjectDeclaredFunction=class(TBESENObjectFunction)
-      public
-       LexicalEnvironment:TBESENLexicalEnvironment;
-       Node:TBESENASTNodeFunctionLiteral;
-       Parameters:TBESENObjectDeclaredFunctionParameters;
-       Container:TBESENFunctionLiteralContainer;
-       ContextCache:TBESENContextCache;
-       constructor Create(AInstance:TObject;APrototype:TBESENObject=nil;AHasPrototypeProperty:longbool=false); overload; override;
-       destructor Destroy; override;
-       function GetEx(const P:TBESENString;var AResult:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Base:TBESENObject=nil;Hash:TBESENHash=0):boolean; override;
-       function GetIndex(const Index,ID:integer;var AResult:TBESENValue;Base:TBESENObject=nil):boolean; override;
-       procedure Construct(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue); override;
-       procedure Call(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue); override;
-       procedure CallEx(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue;IsConstruct:boolean); virtual;
-       function HasConstruct:TBESENBoolean; override;
-       function HasCall:TBESENBoolean; override;
-       procedure Finalize; override;
-       procedure Mark; override;
-     end;
+	TBESENObjectDeclaredFunction = class(TBESENObjectFunction)
+	public
+		LexicalEnvironment: TBESENLexicalEnvironment;
+		Node: TBESENASTNodeFunctionLiteral;
+		Parameters: TBESENObjectDeclaredFunctionParameters;
+		Container: TBESENFunctionLiteralContainer;
+		ContextCache: TBESENContextCache;
+		constructor Create(AInstance: TObject; APrototype: TBESENObject = nil; AHasPrototypeProperty: longbool = False); overload; override;
+		destructor Destroy; override;
+		function GetEx(const P: TBESENString; var AResult: TBESENValue; var Descriptor: TBESENObjectPropertyDescriptor; Base: TBESENObject = nil; Hash: TBESENHash = 0): boolean; override;
+		function GetIndex(const Index, ID: integer; var AResult: TBESENValue; Base: TBESENObject = nil): boolean; override;
+		procedure Construct(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue); override;
+		procedure Call(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue); override;
+		procedure CallEx(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue; IsConstruct: boolean); virtual;
+		function HasConstruct: TBESENBoolean; override;
+		function HasCall: TBESENBoolean; override;
+		procedure Finalize; override;
+		procedure Mark; override;
+	end;
 
 implementation
 
-uses BESEN,BESENErrors,BESENUtils,BESENCode,BESENDeclarativeEnvironmentRecord;
+uses BESEN, BESENErrors, BESENUtils, BESENCode, BESENDeclarativeEnvironmentRecord;
 
-constructor TBESENObjectDeclaredFunction.Create(AInstance:TObject;APrototype:TBESENObject=nil;AHasPrototypeProperty:longbool=false);
+constructor TBESENObjectDeclaredFunction.Create(AInstance: TObject; APrototype: TBESENObject = nil; AHasPrototypeProperty: longbool = False);
 begin
- inherited Create(AInstance,APrototype,AHasPrototypeProperty);
- ObjectClassName:='Function';
- ObjectName:='declared';
- LexicalEnvironment:=nil;
- Node:=nil;
- Parameters:=nil;
- Container:=nil;
- ContextCache:=TBESENContextCache.Create(Instance);
+	inherited Create(AInstance, APrototype, AHasPrototypeProperty);
+	ObjectClassName := 'Function';
+	ObjectName := 'declared';
+	LexicalEnvironment := nil;
+	Node := nil;
+	Parameters := nil;
+	Container := nil;
+	ContextCache := TBESENContextCache.Create(Instance);
 end;
 
 destructor TBESENObjectDeclaredFunction.Destroy;
 begin
- SetLength(Parameters,0);
- BESENFreeAndNil(ContextCache);
- inherited Destroy;
+	SetLength(Parameters, 0);
+	BESENFreeAndNil(ContextCache);
+	inherited Destroy;
 end;
 
-function TBESENObjectDeclaredFunction.GetEx(const P:TBESENString;var AResult:TBESENValue;var Descriptor:TBESENObjectPropertyDescriptor;Base:TBESENObject=nil;Hash:TBESENHash=0):boolean;
+function TBESENObjectDeclaredFunction.GetEx(const P: TBESENString; var AResult: TBESENValue; var Descriptor: TBESENObjectPropertyDescriptor; Base: TBESENObject = nil; Hash: TBESENHash = 0): boolean;
 begin
- if not assigned(Base) then begin
-  Base:=self;
- end;
- result:=inherited GetEx(P,AResult,Descriptor,Base,Hash);
- if Node.Body.IsStrict and (P='caller') then begin
-  raise EBESENTypeError.Create('"caller" not allowed here');
- end;
+	if not assigned(Base) then begin
+		Base := self;
+	end;
+	Result := inherited GetEx(P, AResult, Descriptor, Base, Hash);
+	if Node.Body.IsStrict and (P = 'caller') then begin
+		raise EBESENTypeError.Create('"caller" not allowed here');
+	end;
 end;
 
-function TBESENObjectDeclaredFunction.GetIndex(const Index,ID:integer;var AResult:TBESENValue;Base:TBESENObject=nil):boolean;
+function TBESENObjectDeclaredFunction.GetIndex(const Index, ID: integer; var AResult: TBESENValue; Base: TBESENObject = nil): boolean;
 begin
- if not assigned(Base) then begin
-  Base:=self;
- end;
- result:=inherited GetIndex(Index,ID,AResult,Base);
- if TBESEN(Instance).IsStrict and (ID=TBESEN(Instance).KeyIDManager.CallerID) then begin
-  raise EBESENTypeError.Create('"caller" not allowed here');
- end;
+	if not assigned(Base) then begin
+		Base := self;
+	end;
+	Result := inherited GetIndex(Index, ID, AResult, Base);
+	if TBESEN(Instance).IsStrict and (ID = TBESEN(Instance).KeyIDManager.CallerID) then begin
+		raise EBESENTypeError.Create('"caller" not allowed here');
+	end;
 end;
 
-procedure TBESENObjectDeclaredFunction.Construct(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue);
-var r1:TBESENObject;
-    r3:TBESENValue;
+procedure TBESENObjectDeclaredFunction.Construct(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue);
+var r1: TBESENObject;
+	r3: TBESENValue;
 begin
- Get('prototype',r3);
- if (r3.ValueType=bvtOBJECT) and assigned(TBESENObject(r3.Obj)) then begin
-  r1:=TBESENObject.Create(Instance,TBESENObject(r3.Obj),false);
- end else begin
-  r1:=TBESENObject.Create(Instance,TBESEN(Instance).ObjectPrototype,false);
- end;
- TBESEN(Instance).GarbageCollector.Add(r1);
- r1.GarbageCollectorLock;
- try
-  r1.Extensible:=true;
-  CallEx(BESENObjectValue(r1),Arguments,CountArguments,AResult,true);
- finally
-  r1.GarbageCollectorUnlock;
- end;
- if AResult.ValueType<>bvtOBJECT then begin
-  AResult.ValueType:=bvtOBJECT;
-  AResult.Obj:=r1;
- end;
+	Get('prototype', r3);
+	if (r3.ValueType = bvtOBJECT) and assigned(TBESENObject(r3.Obj)) then begin
+		r1 := TBESENObject.Create(Instance, TBESENObject(r3.Obj), False);
+	end else begin
+		r1 := TBESENObject.Create(Instance, TBESEN(Instance).ObjectPrototype, False);
+	end;
+	TBESEN(Instance).GarbageCollector.Add(r1);
+	r1.GarbageCollectorLock;
+	try
+		r1.Extensible := True;
+		CallEx(BESENObjectValue(r1), Arguments, CountArguments, AResult, True);
+	finally
+		r1.GarbageCollectorUnlock;
+	end;
+	if AResult.ValueType <> bvtOBJECT then begin
+		AResult.ValueType := bvtOBJECT;
+		AResult.Obj := r1;
+	end;
 end;
 
-procedure TBESENObjectDeclaredFunction.Call(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue);
+procedure TBESENObjectDeclaredFunction.Call(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue);
 begin
- CallEx(ThisArgument,Arguments,CountArguments,AResult,false);
+	CallEx(ThisArgument, Arguments, CountArguments, AResult, False);
 end;
 
-procedure TBESENObjectDeclaredFunction.CallEx(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var AResult:TBESENValue;IsConstruct:boolean);
-var NewContext:TBESENContext;
-    LocalEnv:TBESENLexicalEnvironment;
- procedure SetThisBinding;
- begin
-  if Node.Body.IsStrict then begin
-   BESENCopyValue(NewContext.ThisBinding,ThisArgument);
-  end else if ThisArgument.ValueType in [bvtUNDEFINED,bvtNULL] then begin
-   NewContext.ThisBinding.ValueType:=bvtOBJECT;
-   NewContext.ThisBinding.Obj:=TBESEN(Instance).ObjectGlobal;
-  end else if ThisArgument.ValueType<>bvtOBJECT then begin
-   TBESEN(Instance).ToObjectValue(ThisArgument,NewContext.ThisBinding);
-  end else begin
-   BESENCopyValue(NewContext.ThisBinding,ThisArgument);
-  end;
- end;
+procedure TBESENObjectDeclaredFunction.CallEx(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var AResult: TBESENValue; IsConstruct: boolean);
+var NewContext: TBESENContext;
+	LocalEnv: TBESENLexicalEnvironment;
+
+	procedure SetThisBinding;
+	begin
+		if Node.Body.IsStrict then begin
+			BESENCopyValue(NewContext.ThisBinding, ThisArgument);
+		end else if ThisArgument.ValueType in [bvtUNDEFINED, bvtNULL] then begin
+			NewContext.ThisBinding.ValueType := bvtOBJECT;
+			NewContext.ThisBinding.Obj := TBESEN(Instance).ObjectGlobal;
+		end else if ThisArgument.ValueType <> bvtOBJECT then begin
+			TBESEN(Instance).ToObjectValue(ThisArgument, NewContext.ThisBinding);
+		end else begin
+			BESENCopyValue(NewContext.ThisBinding, ThisArgument);
+		end;
+	end;
 begin
- if assigned(Node) and (assigned(Node.Body) and not (Node.Body.IsEmpty and (CountArguments=0))) then begin
-  GarbageCollectorLock;
-  try
-   NewContext:=ContextCache.Pop;
-   if assigned(NewContext) then begin
-    LocalEnv:=NewContext.VariableEnvironment;
-   end else begin
-    NewContext:=TBESENContext.Create(Instance);
-    LocalEnv:=nil;
-   end;
-   if assigned(LocalEnv) then begin
-    LocalEnv.Outer:=LexicalEnvironment;
-    NewContext.LexicalEnvironment:=LocalEnv;
-    SetThisBinding;
-    NewContext.InitializeDeclarationBindingInstantiation(Node.Body,self,false,Arguments,CountArguments,true);
-   end else begin
-    LocalEnv:=TBESEN(Instance).NewDeclarativeEnvironment(LexicalEnvironment,Node.Body.IsStrict,TBESENCode(Node.Body.Code).HasMaybeDirectEval);
-    TBESEN(Instance).GarbageCollector.Add(LocalEnv);
-    NewContext.LexicalEnvironment:=LocalEnv;
-    NewContext.VariableEnvironment:=LocalEnv;
-    SetThisBinding;
-    NewContext.InitializeDeclarationBindingInstantiation(Node.Body,self,false,Arguments,CountArguments,false);
-    if not IsConstruct then begin
-     TBESEN(Instance).GarbageCollector.TriggerCollect;
-    end;
-   end;
-   try
-    if Node.Body.IsEmpty then begin
-     AResult.ValueType:=bvtUNDEFINED;
-    end else begin
-     Node.ExecuteCode(NewContext,AResult);
-    end;
-    if (ContextCache.Count<TBESEN(Instance).MaxCountOfFreeContexts) and (Node.Body.DisableArgumentsObject and ((length(Node.Body.Functions)=0) and (assigned(Node.Body.Code) and ((TBESENCode(Node.Body.Code).CountFunctionLiteralContainers=0) and not (TBESENCode(Node.Body.Code).IsComplexFunction or TBESENCode(Node.Body.Code).HasLocalDelete))))) then begin
-     NewContext.Reset;
-     if (((assigned(LocalEnv) and (NewContext.VariableEnvironment=LocalEnv){ and (LocalEnv.Outer=Instance.GlobalLexicalEnvironment)}) and assigned(LocalEnv.EnvironmentRecord)) and (LocalEnv.EnvironmentRecord is TBESENDeclarativeEnvironmentRecord)) and not TBESENDeclarativeEnvironmentRecord(LocalEnv.EnvironmentRecord).Touched then begin
-      LocalEnv.Outer:=nil;
-      TBESENDeclarativeEnvironmentRecord(LocalEnv.EnvironmentRecord).Reset;
-      ContextCache.Push(NewContext);
-      NewContext:=nil;
-     end;
-    end;
-   finally
-    NewContext.Free;
-   end;
-  finally
-   GarbageCollectorUnlock;
-  end;
- end else begin
-  AResult.ValueType:=bvtUNDEFINED;
- end;
+	if assigned(Node) and (assigned(Node.Body) and not (Node.Body.IsEmpty and (CountArguments = 0))) then begin
+		GarbageCollectorLock;
+		try
+			NewContext := ContextCache.Pop;
+			if assigned(NewContext) then begin
+				LocalEnv := NewContext.VariableEnvironment;
+			end else begin
+				NewContext := TBESENContext.Create(Instance);
+				LocalEnv := nil;
+			end;
+			if assigned(LocalEnv) then begin
+				LocalEnv.Outer := LexicalEnvironment;
+				NewContext.LexicalEnvironment := LocalEnv;
+				SetThisBinding;
+				NewContext.InitializeDeclarationBindingInstantiation(Node.Body, self, False, Arguments, CountArguments, True);
+			end else begin
+				LocalEnv := TBESEN(Instance).NewDeclarativeEnvironment(LexicalEnvironment, Node.Body.IsStrict, TBESENCode(Node.Body.Code).HasMaybeDirectEval);
+				TBESEN(Instance).GarbageCollector.Add(LocalEnv);
+				NewContext.LexicalEnvironment := LocalEnv;
+				NewContext.VariableEnvironment := LocalEnv;
+				SetThisBinding;
+				NewContext.InitializeDeclarationBindingInstantiation(Node.Body, self, False, Arguments, CountArguments, False);
+				if not IsConstruct then begin
+					TBESEN(Instance).GarbageCollector.TriggerCollect;
+				end;
+			end;
+			try
+				if Node.Body.IsEmpty then begin
+					AResult.ValueType := bvtUNDEFINED;
+				end else begin
+					Node.ExecuteCode(NewContext, AResult);
+				end;
+				if (ContextCache.Count < TBESEN(Instance).MaxCountOfFreeContexts) and (Node.Body.DisableArgumentsObject and ((length(Node.Body.Functions) = 0) and (assigned(Node.Body.Code) and ((TBESENCode(Node.Body.Code).CountFunctionLiteralContainers = 0) and not (TBESENCode(Node.Body.Code).IsComplexFunction or TBESENCode(Node.Body.Code).HasLocalDelete))))) then begin
+					NewContext.Reset;
+					if (((assigned(LocalEnv) and (NewContext.VariableEnvironment = LocalEnv){ and (LocalEnv.Outer=Instance.GlobalLexicalEnvironment)}) and assigned(LocalEnv.EnvironmentRecord)) and (LocalEnv.EnvironmentRecord is TBESENDeclarativeEnvironmentRecord)) and not TBESENDeclarativeEnvironmentRecord(LocalEnv.EnvironmentRecord).Touched then begin
+						LocalEnv.Outer := nil;
+						TBESENDeclarativeEnvironmentRecord(LocalEnv.EnvironmentRecord).Reset;
+						ContextCache.Push(NewContext);
+						NewContext := nil;
+					end;
+				end;
+			finally
+				NewContext.Free;
+			end;
+		finally
+			GarbageCollectorUnlock;
+		end;
+	end else begin
+		AResult.ValueType := bvtUNDEFINED;
+	end;
 end;
 
-function TBESENObjectDeclaredFunction.HasConstruct:TBESENBoolean;
+function TBESENObjectDeclaredFunction.HasConstruct: TBESENBoolean;
 begin
- result:=true;
+	Result := True;
 end;
 
-function TBESENObjectDeclaredFunction.HasCall:TBESENBoolean;
+function TBESENObjectDeclaredFunction.HasCall: TBESENBoolean;
 begin
- result:=true;
+	Result := True;
 end;
 
 procedure TBESENObjectDeclaredFunction.Finalize;
 begin
- Container:=nil;
- LexicalEnvironment:=nil;
- inherited Finalize;
+	Container := nil;
+	LexicalEnvironment := nil;
+	inherited Finalize;
 end;
 
 procedure TBESENObjectDeclaredFunction.Mark;
 begin
- if assigned(Container) then begin
-  TBESEN(Instance).GarbageCollector.GrayIt(Container);
- end;
- if assigned(LexicalEnvironment) then begin
-  TBESEN(Instance).GarbageCollector.GrayIt(LexicalEnvironment);
- end;
- if assigned(ContextCache) then begin
-  ContextCache.Mark;
- end;
- inherited Mark;
+	if assigned(Container) then begin
+		TBESEN(Instance).GarbageCollector.GrayIt(Container);
+	end;
+	if assigned(LexicalEnvironment) then begin
+		TBESEN(Instance).GarbageCollector.GrayIt(LexicalEnvironment);
+	end;
+	if assigned(ContextCache) then begin
+		ContextCache.Mark;
+	end;
+	inherited Mark;
 end;
 
 end.

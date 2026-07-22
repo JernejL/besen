@@ -35,68 +35,69 @@ interface
 
 uses Math;
 
-{$ifndef BESENNoFPU}
-const BESENFPUExceptionMask:TFPUExceptionMask=[exInvalidOp,exDenormalized,exZeroDivide,exOverflow,exUnderflow,exPrecision];
+	{$ifndef BESENNoFPU}
+const BESENFPUExceptionMask: TFPUExceptionMask = [exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision];
 
-      BESENFPUPrecisionMode:TFPUPrecisionMode={$ifdef HAS_TYPE_EXTENDED}pmEXTENDED{$else}pmDOUBLE{$endif};
-{$endif}
+	BESENFPUPrecisionMode: TFPUPrecisionMode ={$ifdef HAS_TYPE_EXTENDED}pmEXTENDED{$else}pmDOUBLE{$endif};
+	{$endif}
 
-{$ifndef fpc}
-const FPC_VERSION=2;
-      FPC_RELEASE=5;
-      FPC_PATCH=1;
-{$endif}
+	{$ifndef fpc}
+const FPC_VERSION = 2;
+	FPC_RELEASE = 5;
+	FPC_PATCH = 1;
+	{$endif}
 
-const COMPAT_UTF8_UNSAFE=1 shl 1; // accept 'valid but insecure' UTF8
-      COMPAT_SGMLCOM=1 shl 2; // treat '<!--' as a '//' comment
-      COMPAT_BESEN=1 shl 3; // BESEN-specific extensions
-      COMPAT_JS=1 shl 4; // JavaScript-specific extensions
+const COMPAT_UTF8_UNSAFE = 1 shl 1; // accept 'valid but insecure' UTF8
+	COMPAT_SGMLCOM = 1 shl 2; // treat '<!--' as a '//' comment
+	COMPAT_BESEN = 1 shl 3; // BESEN-specific extensions
+	COMPAT_JS = 1 shl 4; // JavaScript-specific extensions
 
-      BESEN_GC_MARKFACTOR:integer=25;
-      BESEN_GC_TRIGGERCOUNT_PER_COLLECT:integer=1;
+	BESEN_GC_MARKFACTOR: integer = 25;
+	BESEN_GC_TRIGGERCOUNT_PER_COLLECT: integer = 1;
+	BESEN_GC_TRIGGERCOUNT_NEVER: integer = -1;
 
-      bimMAXIDENTS=1 shl 24;
+	bimMAXIDENTS = 1 shl 24;
 
-      BESENHashItemsPerBucketsThreshold:longword=5;
-      BESENHashMaxSize:longword=1 shl 16;
+	BESENHashItemsPerBucketsThreshold: longword = 5;
+	BESENHashMaxSize: longword = 1 shl 16;
 
-      BESENMaxCountOfFreeCodeContexts:integer=16;
+	BESENMaxCountOfFreeCodeContexts: integer = 16;
 
-      BESENMaxCountOfFreeContexts:integer=16;
+	BESENMaxCountOfFreeContexts: integer = 16;
 
-      BESEN_JIT_LOOPCOMPILETHRESHOLD:longword=1000;
+	BESEN_JIT_LOOPCOMPILETHRESHOLD: longword = 1000;
 
-      BESEN_CMWCRND_A=18782;
-      BESEN_CMWCRND_M=longword($fffffffe);
-      BESEN_CMWCRND_BITS=12;
-      BESEN_CMWCRND_SIZE=1 shl BESEN_CMWCRND_BITS;
-      BESEN_CMWCRND_MASK=BESEN_CMWCRND_SIZE-1;
+	BESEN_CMWCRND_A = 18782;
+	BESEN_CMWCRND_M = longword($fffffffe);
+	BESEN_CMWCRND_BITS = 12;
+	BESEN_CMWCRND_SIZE = 1 shl BESEN_CMWCRND_BITS;
+	BESEN_CMWCRND_MASK = BESEN_CMWCRND_SIZE - 1;
 
-      bncmmMINBLOCKCONTAINERSIZE=1048576;
+	bncmmMINBLOCKCONTAINERSIZE = 1048576;
 
-      bcttNOTARGET=0;
+	bcttNOTARGET = 0;
 
-      BESENEvalCacheSize:integer=256;
-      BESENEvalCacheMaxSourceLength:integer=256;
+	BESENEvalCacheSize: integer = 256;
+	BESENEvalCacheMaxSourceLength: integer = 256;
 
-      bncfZERO=1 shl 0;
-      bncfNAN=1 shl 1;
-      bncfINFINITE=1 shl 2;
-      bncfNEGATIVE=1 shl 3;
+	bncfZERO = 1 shl 0;
+	bncfNAN = 1 shl 1;
+	bncfINFINITE = 1 shl 2;
+	bncfNEGATIVE = 1 shl 3;
 
-      BESENObjectStructureIDManagerHashSize=65536;
-      BESENObjectStructureIDManagerHashSizeMask=BESENObjectStructureIDManagerHashSize-1;
+	BESENObjectStructureIDManagerHashSize = 65536;
+	BESENObjectStructureIDManagerHashSizeMask = BESENObjectStructureIDManagerHashSize - 1;
 
-      BESENPolymorphicInlineCacheSize=8;
-      BESENPolymorphicInlineCacheSizeMask=BESENPolymorphicInlineCacheSize-1;
+	BESENPolymorphicInlineCacheSize = 8;
+	BESENPolymorphicInlineCacheSizeMask = BESENPolymorphicInlineCacheSize - 1;
 
-      BESENPolymorphicInlineCacheStartItemPositions=longword((0 shl 0) or (1 shl 4) or (2 shl 8) or (3 shl 12) or (4 shl 16) or (5 shl 20) or (6 shl 24) or (7 shl 28));
+	BESENPolymorphicInlineCacheStartItemPositions = longword((0 shl 0) or (1 shl 4) or (2 shl 8) or (3 shl 12) or (4 shl 16) or (5 shl 20) or (6 shl 24) or (7 shl 28));
 
-      BESENLongBooleanValues:array[boolean] of longbool=(false,true);
+	BESENLongBooleanValues: array[boolean] of longbool = (False, True);
 
-      BESENNumberBooleanValues:array[boolean] of integer=(0,1);
+	BESENNumberBooleanValues: array[boolean] of integer = (0, 1);
 
-      BESENInt32BooleanValues:array[boolean] of integer=(0,longint(longword($ffffffff)));
+	BESENInt32BooleanValues: array[boolean] of integer = (0, longint(longword($ffffffff)));
 
 implementation
 

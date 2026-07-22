@@ -33,190 +33,218 @@ unit BESENObjectPrototype;
 
 interface
 
-uses BESENConstants,BESENTypes,BESENObject,BESENValue,BESENObjectPropertyDescriptor;
+uses BESENConstants, BESENTypes, BESENObject, BESENValue, BESENObjectPropertyDescriptor;
 
-type TBESENObjectPrototype=class(TBESENObject)
-      public
-       constructor Create(AInstance:TObject;APrototype:TBESENObject=nil;AHasPrototypeProperty:longbool=false); overload; override;
-       destructor Destroy; override;
-       procedure NativeToString(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativeToLocaleString(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativeToSource(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativeValueOf(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativeHasOwnProperty(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativeIsPrototypeOf(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-       procedure NativePropertyIsEnumerable(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-     end;
+type TBESENObjectPrototype = class(TBESENObject)
+	public
+		constructor Create(AInstance: TObject; APrototype: TBESENObject = nil; AHasPrototypeProperty: longbool = False); overload; override;
+		destructor Destroy; override;
+		procedure NativeToString(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativeToLocaleString(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativeToSource(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativeValueOf(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativeHasOwnProperty(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativeIsPrototypeOf(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+		procedure NativePropertyIsEnumerable(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+	end;
+
+function BESENObjectIsInstance(const inputobjectcheck: TBESENObject): TBESENObject;
 
 implementation
 
-uses BESEN,BESENErrors;
+uses BESEN, BESENErrors;
 
-constructor TBESENObjectPrototype.Create(AInstance:TObject;APrototype:TBESENObject=nil;AHasPrototypeProperty:longbool=false);
+function BESENObjectIsInstance(const inputobjectcheck: TBESENObject): TBESENObject;
+var
+	getpropvalue: TBESENValue;
 begin
- inherited Create(AInstance,APrototype,AHasPrototypeProperty);
- ObjectName:='prototype';
+	Result := nil;
 
- if (TBESEN(Instance).Compatibility and COMPAT_JS)<>0 then begin
-  OverwriteData('name',BESENStringValue(ObjectName),[]);
- end;
+	if not Assigned(inputobjectcheck) then
+		Exit;
 
- RegisterNativeFunction('toString',NativeToString,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('toLocaleString',NativeToLocaleString,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('toSource',NativeToSource,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('valueOf',NativeValueOf,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('hasOwnProperty',NativeHasOwnProperty,1,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('isPrototypeOf',NativeIsPrototypeOf,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
- RegisterNativeFunction('propertyIsEnumerable',NativePropertyIsEnumerable,0,[bopaWRITABLE,bopaCONFIGURABLE],false);
+	TBESENObject(inputobjectcheck).Get('prototype', getpropvalue); // get property when js prototyped
+
+	if (getpropvalue.ValueType = bvtOBJECT) and Assigned(getpropvalue.Obj) then begin
+		Result := TBESENObject(getpropvalue.Obj); // return the parent object.
+	end;
+
+	if assigned(TBESENObject(inputobjectcheck).Prototype) then begin // get prototype if internal prototype
+  			Result := TBESENObject(inputobjectcheck).Prototype;
+
+		if assigned(Result) and (Result.ClassType = TBESENObjectPrototype) then // end of the chain.
+			Result := nil;
+
+	end;
+
+end;
+
+constructor TBESENObjectPrototype.Create(AInstance: TObject; APrototype: TBESENObject = nil; AHasPrototypeProperty: longbool = False);
+begin
+	inherited Create(AInstance, APrototype, AHasPrototypeProperty);
+	ObjectName := 'prototype';
+
+	if (TBESEN(Instance).Compatibility and COMPAT_JS) <> 0 then begin
+		OverwriteData('name', BESENStringValue(ObjectName), []);
+	end;
+
+	RegisterNativeFunction('toString', NativeToString, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('toLocaleString', NativeToLocaleString, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('toSource', NativeToSource, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('valueOf', NativeValueOf, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('hasOwnProperty', NativeHasOwnProperty, 1, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('isPrototypeOf', NativeIsPrototypeOf, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
+	RegisterNativeFunction('propertyIsEnumerable', NativePropertyIsEnumerable, 0, [bopaWRITABLE, bopaCONFIGURABLE], False);
 end;
 
 destructor TBESENObjectPrototype.Destroy;
 begin
- inherited Destroy;
+	inherited Destroy;
 end;
 
-procedure TBESENObjectPrototype.NativeToString(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-var o:TBesenObject;
+procedure TBESENObjectPrototype.NativeToString(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+var o: TBesenObject;
 begin
- // ES5 errata fix
- case ThisArgument.ValueType of
-  bvtUNDEFINED:begin
-   ResultValue:=BESENStringValue('[object Undefined]');
-  end;
-  bvtNULL:begin
-   ResultValue:=BESENStringValue('[object Null]');
-  end;
-  else begin
-   o:=TBESEN(Instance).ToObj(ThisArgument);
-   o.GarbageCollectorLock;
-   try
-    if assigned(o) then begin
-     if length(o.ObjectClassName)>0 then begin
-      ResultValue:=BESENStringValue('[object '+o.ObjectClassName+']');
-     end else begin
-      ResultValue:=BESENStringValue('[object Object]');
-     end;
-    end else begin
-     BESENThrowTypeError(self, 'Null this object');
-    end;
-   finally
-    o.GarbageCollectorUnlock;
-   end;
-  end;
- end;
+	// ES5 errata fix
+	case ThisArgument.ValueType of
+		bvtUNDEFINED: begin
+			ResultValue := BESENStringValue('[object Undefined]');
+		end;
+		bvtNULL: begin
+			ResultValue := BESENStringValue('[object Null]');
+		end;
+		else
+		begin
+			o := TBESEN(Instance).ToObj(ThisArgument);
+			o.GarbageCollectorLock;
+			try
+				if assigned(o) then begin
+					if length(o.ObjectClassName) > 0 then begin
+						ResultValue := BESENStringValue('[object ' + o.ObjectClassName + ']');
+					end else begin
+						ResultValue := BESENStringValue('[object Object]');
+					end;
+				end else begin
+					BESENThrowTypeError(self, 'Null this object');
+				end;
+			finally
+				o.GarbageCollectorUnlock;
+			end;
+		end;
+	end;
 end;
 
-procedure TBESENObjectPrototype.NativeToLocaleString(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-var v:TBESENValue;
-    o:TBesenObject;
+procedure TBESENObjectPrototype.NativeToLocaleString(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+var v: TBESENValue;
+	o: TBesenObject;
 begin
- o:=TBESEN(Instance).ToObj(ThisArgument);
- if assigned(o) then begin
-  o.GarbageCollectorLock;
-  try
-   o.Get('toString',v);
-   if (v.ValueType=bvtOBJECT) and assigned(TBESENObject(v.Obj)) and TBESENObject(v.Obj).HasCall then begin
-    TBESEN(Instance).ObjectCall(TBESENObject(v.Obj),ThisArgument,Arguments,CountArguments,ResultValue);
-   end else begin
-    BESENThrowTypeError(self, 'Null this object');
-   end;
-  finally
-   o.GarbageCollectorUnlock;
-  end;
- end else begin
-  BESENThrowTypeError(self, 'Null this object');
- end;
+	o := TBESEN(Instance).ToObj(ThisArgument);
+	if assigned(o) then begin
+		o.GarbageCollectorLock;
+		try
+			o.Get('toString', v);
+			if (v.ValueType = bvtOBJECT) and assigned(TBESENObject(v.Obj)) and TBESENObject(v.Obj).HasCall then begin
+				TBESEN(Instance).ObjectCall(TBESENObject(v.Obj), ThisArgument, Arguments, CountArguments, ResultValue);
+			end else begin
+				BESENThrowTypeError(self, 'Null this object');
+			end;
+		finally
+			o.GarbageCollectorUnlock;
+		end;
+	end else begin
+		BESENThrowTypeError(self, 'Null this object');
+	end;
 end;
 
-procedure TBESENObjectPrototype.NativeToSource(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
+procedure TBESENObjectPrototype.NativeToSource(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
 begin
- ResultValue:=BESENStringValue('/* Unimplemented */');
+	ResultValue := BESENStringValue('/* Unimplemented */');
 end;
 
-procedure TBESENObjectPrototype.NativeValueOf(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
+procedure TBESENObjectPrototype.NativeValueOf(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
 begin
- TBESEN(Instance).ToObjectValue(ThisArgument,ResultValue);
+	TBESEN(Instance).ToObjectValue(ThisArgument, ResultValue);
 end;
 
-procedure TBESENObjectPrototype.NativeHasOwnProperty(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-var Descriptor:TBESENObjectPropertyDescriptor;
-    o:TBesenObject;
+procedure TBESENObjectPrototype.NativeHasOwnProperty(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+var Descriptor: TBESENObjectPropertyDescriptor;
+	o: TBesenObject;
 begin
- o:=TBESEN(Instance).ToObj(ThisArgument);
- if not assigned(o) then begin
-  raise EBESENTypeError.Create('Null this object');
- end;
- o.GarbageCollectorLock;
- try
-  ResultValue.ValueType:=bvtBOOLEAN;
-  if CountArguments>0 then begin
-   ResultValue.Bool:=o.GetOwnProperty(TBESEN(Instance).ToStr(Arguments^[0]^),Descriptor);
-  end else begin
-   ResultValue.Bool:=false;
-  end;
- finally
-  o.GarbageCollectorUnlock;
- end;
+	o := TBESEN(Instance).ToObj(ThisArgument);
+	if not assigned(o) then begin
+		raise EBESENTypeError.Create('Null this object');
+	end;
+	o.GarbageCollectorLock;
+	try
+		ResultValue.ValueType := bvtBOOLEAN;
+		if CountArguments > 0 then begin
+			ResultValue.Bool := o.GetOwnProperty(TBESEN(Instance).ToStr(Arguments^[0]^), Descriptor);
+		end else begin
+			ResultValue.Bool := False;
+		end;
+	finally
+		o.GarbageCollectorUnlock;
+	end;
 end;
 
-procedure TBESENObjectPrototype.NativeIsPrototypeOf(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-var v,o:TBESENObject;
+procedure TBESENObjectPrototype.NativeIsPrototypeOf(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+var v, o: TBESENObject;
 begin
- ResultValue.ValueType:=bvtBOOLEAN;
- ResultValue.Bool:=false;
- if (CountArguments>0) and (Arguments^[0]^.ValueType=bvtOBJECT) then begin
-  o:=TBESEN(Instance).ToObj(ThisArgument);
-  if not assigned(o) then begin
-   raise EBESENTypeError.Create('Null this object');
-  end;
-  o.GarbageCollectorLock;
-  try
-   v:=TBESENObject(Arguments^[0]^.Obj);
-   while assigned(v) do begin
-    v:=v.Prototype;
-    if assigned(v) then begin
-     if o=v then begin
-      ResultValue.Bool:=true;
-      break;
-     end;
-    end else begin
-     ResultValue.Bool:=false;
-     break;
-    end;
-   end;
-  finally
-   o.GarbageCollectorUnlock;
-  end;
- end else begin
-  ResultValue.Bool:=false;
- end;
+	ResultValue.ValueType := bvtBOOLEAN;
+	ResultValue.Bool := False;
+	if (CountArguments > 0) and (Arguments^[0]^.ValueType = bvtOBJECT) then begin
+		o := TBESEN(Instance).ToObj(ThisArgument);
+		if not assigned(o) then begin
+			raise EBESENTypeError.Create('Null this object');
+		end;
+		o.GarbageCollectorLock;
+		try
+			v := TBESENObject(Arguments^[0]^.Obj);
+			while assigned(v) do begin
+				v := v.Prototype;
+				if assigned(v) then begin
+					if o = v then begin
+						ResultValue.Bool := True;
+						break;
+					end;
+				end else begin
+					ResultValue.Bool := False;
+					break;
+				end;
+			end;
+		finally
+			o.GarbageCollectorUnlock;
+		end;
+	end else begin
+		ResultValue.Bool := False;
+	end;
 end;
 
-procedure TBESENObjectPrototype.NativePropertyIsEnumerable(const ThisArgument:TBESENValue;Arguments:PPBESENValues;CountArguments:integer;var ResultValue:TBESENValue);
-var Descriptor:TBESENObjectPropertyDescriptor;
-    o:TBESENObject;
-    s:TBESENString;
+procedure TBESENObjectPrototype.NativePropertyIsEnumerable(const ThisArgument: TBESENValue; Arguments: PPBESENValues; CountArguments: integer; var ResultValue: TBESENValue);
+var Descriptor: TBESENObjectPropertyDescriptor;
+	o: TBESENObject;
+	s: TBESENString;
 begin
- ResultValue.ValueType:=bvtBOOLEAN;
- if CountArguments>0 then begin
-  s:=TBESEN(Instance).ToStr(Arguments^[0]^);
-  o:=TBESEN(Instance).ToObj(ThisArgument);
-  if not assigned(o) then begin
-   raise EBESENTypeError.Create('Null this object');
-  end;
-  o.GarbageCollectorLock;
-  try
-   if o.GetOwnProperty(s,Descriptor) then begin
-    ResultValue.Bool:=(boppENUMERABLE in Descriptor.Presents) and (bopaENUMERABLE in Descriptor.Attributes);
-   end else begin
-    ResultValue.Bool:=false;
-   end;
-  finally
-   o.GarbageCollectorUnlock;
-  end;
- end else begin
-  ResultValue.Bool:=false;
- end;
+	ResultValue.ValueType := bvtBOOLEAN;
+	if CountArguments > 0 then begin
+		s := TBESEN(Instance).ToStr(Arguments^[0]^);
+		o := TBESEN(Instance).ToObj(ThisArgument);
+		if not assigned(o) then begin
+			raise EBESENTypeError.Create('Null this object');
+		end;
+		o.GarbageCollectorLock;
+		try
+			if o.GetOwnProperty(s, Descriptor) then begin
+				ResultValue.Bool := (boppENUMERABLE in Descriptor.Presents) and (bopaENUMERABLE in Descriptor.Attributes);
+			end else begin
+				ResultValue.Bool := False;
+			end;
+		finally
+			o.GarbageCollectorUnlock;
+		end;
+	end else begin
+		ResultValue.Bool := False;
+	end;
 end;
 
 end.

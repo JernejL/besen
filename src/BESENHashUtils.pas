@@ -33,127 +33,138 @@ unit BESENHashUtils;
 
 interface
 
-uses BESENConstants,BESENTypes;
+uses BESENConstants, BESENTypes;
 
-function BESENHashKey(const Key:TBESENString):TBESENHash;
-function BESENDoubleHash(Hash:TBESENHash):TBESENHash;
+function BESENHashKey(const Key: TBESENString): TBESENHash;
+function BESENDoubleHash(Hash: TBESENHash): TBESENHash;
 
 implementation
 
-function BESENHashKey(const Key:TBESENString):TBESENHash;
+{
+BESENHashKey returns a non-zero hash ($ffffffff for special cases),
+}
+
+function BESENHashKey(const Key: TBESENString): TBESENHash;
 {$ifdef PurePascal}
-var i,h:longword;
+	var i,h:longword;
 begin
- h:=2166136261;
- for i:=1 to length(Key) do begin
-{$ifdef UseOptimizedHashing}
-  h:=h xor ord(Key[i]);
-  inc(h,(h shl 1)+(h shl 4)+(h shl 7)+(h shl 8)+(h shl 24));
-{$else}
-  h:=(h xor ord(Key[i]))*16777619;
-{$endif}
- end;
- if h=0 then begin
-  // result must be never zero ! ! !
-  result:=$ffffffff;
- end else begin
-  result:=h;
- end;
+	h:=2166136261;
+
+	for i:=1 to length(Key) do begin
+		{$ifdef UseOptimizedHashing}
+			h:=h xor ord(Key[i]);
+			inc(h,(h shl 1)+(h shl 4)+(h shl 7)+(h shl 8)+(h shl 24));
+		{$else}
+			h:=(h xor ord(Key[i]))*16777619;
+		{$endif}
+	end;
+
+	if h=0 then begin
+		// result must be never zero ! ! !
+		result:=$ffffffff;
+	end else begin
+		result:=h;
+	end;
+
 end;
 {$else}
-{$ifdef cpu64}
-var i:longword;
-    h:{$ifdef fpc}qword{$else}int64{$endif};
-begin
- h:={$ifdef fpc}qword(14695981039346656037){$else}int64($14650FB0739D0383){$endif};
- for i:=1 to length(Key) do begin
-{$ifdef UseOptimizedHashing}
-  h:=h xor word(widechar(Key[i]));
-  inc(h,(h shl 1)+(h shl 4)+(h shl 5)+(h shl 7)+(h shl 8)+(h shl 40));
-{$else}
-  h:=(h xor word(widechar(Key[i])))*1099511628211;
-{$endif}
- end;
- result:=h;
- dec(result,ord(result=0));
-end;
-{$else}
-{$ifdef cpu386} assembler; register;
-asm
- push ebx
- push esi
- push edi
-  test eax,eax
-  jz @Zero
-  mov ecx,dword ptr [eax-4]
-  jecxz @Zero
-   shr ecx,1
-   mov esi,eax
-   mov eax,2166136261
-   xor ebx,ebx
-{$ifndef UseOptimizedHashing}
-   mov edi,16777619
-{$endif}
-   @Loop:
-    mov bx,word ptr [esi]
-    xor eax,ebx
-{$ifdef UseOptimizedHashing}
-    mov ebx,eax
-    mov edi,ebx
-    add edi,edi
-    add eax,edi
-    mov edi,ebx
-    shl edi,4
-    add eax,edi
-    mov edi,ebx
-    shl edi,7
-    add eax,edi
-    mov edi,ebx
-    shl edi,8
-    add eax,edi
-    shl ebx,24
-    add eax,ebx
-{$else}
-    mul edi
-{$endif}
-    add esi,2
-    dec ecx
-   jnz @Loop
-   or eax,eax
-   jnz @Done
-   @Zero:
-    xor eax,eax
-    not eax
-  @Done:
- pop edi
- pop esi
- pop ebx
-end;
-{$else}
-var i,h:longword;
-begin
- h:=2166136261;
- for i:=1 to length(Key) do begin
-{$ifdef UseOptimizedHashing}
-  h:=h xor word(widechar(Key[i]));
-  inc(h,(h shl 1)+(h shl 4)+(h shl 7)+(h shl 8)+(h shl 24));
-{$else}
-  h:=(h xor word(widechar(Key[i])))*16777619;
-{$endif}
- end;
- result:=h-ord(h=0);
-end;
-{$endif}
-{$endif}
+	{$ifdef cpu64}
+		var
+	        i:longword;
+			h:{$ifdef fpc}qword{$else}int64{$endif};
+		begin
+			h:={$ifdef fpc}qword(14695981039346656037){$else}int64($14650FB0739D0383){$endif};
+
+            for i:=1 to length(Key) do begin
+				{$ifdef UseOptimizedHashing}
+				h:=h xor word(widechar(Key[i]));
+				inc(h,(h shl 1)+(h shl 4)+(h shl 5)+(h shl 7)+(h shl 8)+(h shl 40));
+				{$else}
+				h:=(h xor word(widechar(Key[i])))*1099511628211;
+				{$endif}
+			end;
+
+			result:=h;
+			dec(result,ord(result=0));
+		end;
+	{$else}
+		{$ifdef cpu386} assembler; register;
+			asm
+			push ebx
+			push esi
+			push edi
+			test eax,eax
+			jz @Zero
+			mov ecx,dword ptr [eax-4]
+			jecxz @Zero
+			shr ecx,1
+			mov esi,eax
+			mov eax,2166136261
+			xor ebx,ebx
+			{$ifndef UseOptimizedHashing}
+				mov edi,16777619
+			{$endif}
+			@Loop:
+			mov bx,word ptr [esi]
+			xor eax,ebx
+			{$ifdef UseOptimizedHashing}
+		    mov ebx,eax
+		    mov edi,ebx
+		    add edi,edi
+		    add eax,edi
+		    mov edi,ebx
+		    shl edi,4
+		    add eax,edi
+		    mov edi,ebx
+		    shl edi,7
+		    add eax,edi
+		    mov edi,ebx
+		    shl edi,8
+		    add eax,edi
+		    shl ebx,24
+		    add eax,ebx
+			{$else}
+			mul edi
+			{$endif}
+			add esi,2
+			dec ecx
+			jnz @Loop
+			or eax,eax
+			jnz @Done
+			@Zero:
+			xor eax,eax
+			not eax
+			@Done:
+			pop edi
+			pop esi
+			pop ebx
+			end;
+		{$else}
+		var i, h: longword;
+		begin
+			h := 2166136261;
+			for i := 1 to length(Key) do begin
+				{$ifdef UseOptimizedHashing}
+					h := h xor word(widechar(Key[i]));
+					Inc(h, (h shl 1) + (h shl 4) + (h shl 7) + (h shl 8) + (h shl 24));
+				{$else}
+		  			h:=(h xor word(widechar(Key[i])))*16777619;
+				{$endif}
+			end;
+			Result := h - Ord(h = 0);
+		end;
+		{$endif}
+	{$endif}
 {$endif}
 
-function BESENDoubleHash(Hash:TBESENHash):TBESENHash;
+
+function BESENDoubleHash(Hash: TBESENHash): TBESENHash;
 begin
- result:=(not Hash)+(Hash shr 23);
- result:=result xor (result shl 22);
- result:=result xor (result shr 7);
- result:=result xor (result shl 2);
- result:=result xor (result shr 20);
+	Result := (not Hash) + (Hash shr 23);
+	Result := Result xor (Result shl 22);
+	Result := Result xor (Result shr 7);
+	Result := Result xor (Result shl 2);
+	Result := Result xor (Result shr 20);
 end;
 
 end.
