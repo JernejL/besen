@@ -772,6 +772,24 @@ begin
       pop rax
      end;
      AddCode(CodeBegin,CodeEnd);
+
+     Add(#$b8); // mov eax,Arg
+     AddDWord(Code.Locations[Operands^[0]].iColumnNumber);
+     asm
+      jmp @SkipColumn
+       @CodeBeginColumn:
+        mov dword ptr [rbx+TBESEN.ColumnNumber],eax
+       @CodeEndColumn:
+      @SkipColumn:
+      push rax
+      mov rax,offset @CodeBeginColumn
+      mov qword ptr CodeBegin,rax
+      mov rax,offset @CodeEndColumn
+      mov qword ptr CodeEnd,rax
+      pop rax
+     end;
+     AddCode(CodeBegin,CodeEnd);
+
 	 Add(#$b8); // mov eax,Arg
      AddDWord(Code.Locations[Operands^[0]].FileName);
 	asm

@@ -1071,32 +1071,44 @@ begin
      Add(#$b8); // mov eax,Arg
      AddDWord(Code.Locations[Operands^[0]].iLineNumber);
      asm
-      jmp @Skip
-       @CodeBegin:
+      jmp @SkipLine
+       @CodeBeginLine:
         mov edx,dword ptr [esi+TBESENCodeContext.Instance]
         mov dword ptr [edx+TBESEN.LineNumber],eax
-       @CodeEnd:
-      @Skip:
-      mov dword ptr CodeBegin,offset @CodeBegin
-      mov dword ptr CodeEnd,offset @CodeEnd
+       @CodeEndLine:
+      @SkipLine:
+      mov dword ptr CodeBegin,offset @CodeBeginLine
+      mov dword ptr CodeEnd,offset @CodeEndLine
      end;
      AddCode(CodeBegin,CodeEnd);
 
-     // this works, but it probably fucks up string reference counting D: <- reddor patch https://github.com/reddor/besenws/commit/0a29b01bc35ea6dcfb77896632af5e35a152aaa3#diff-b2e891ab369ac7662ca47254aed9267b6a1ee82afb7b68629ad77166fad35c1eR1081-R1085
      Add(#$b8); // mov eax,Arg
-     AddDWord(Cardinal(Code.Locations[Operands^[0]].iFileName));
+     AddDWord(Code.Locations[Operands^[0]].iColumnNumber);
      asm
-      jmp @Skip
-       @CodeBegin:
+      jmp @SkipColumn
+       @CodeBeginColumn:
+        mov edx,dword ptr [esi+TBESENCodeContext.Instance]
+        mov dword ptr [edx+TBESEN.ColumnNumber],eax
+       @CodeEndColumn:
+      @SkipColumn:
+      mov dword ptr CodeBegin,offset @CodeBeginColumn
+      mov dword ptr CodeEnd,offset @CodeEndColumn
+     end;
+     AddCode(CodeBegin,CodeEnd);
+
+     Add(#$b8); // mov eax,Arg
+     AddDWord(Cardinal(Code.Locations[Operands^[0]].iFilename));
+     asm
+      jmp @SkipFile
+       @CodeBeginFile:
         mov edx,dword ptr [esi+TBESENCodeContext.Instance]
         mov dword ptr [edx+TBESEN.CurrentFile],eax
-       @CodeEnd:
-      @Skip:
-      mov dword ptr CodeBegin,offset @CodeBegin
-      mov dword ptr CodeEnd,offset @CodeEnd
+       @CodeEndFile:
+      @SkipFile:
+      mov dword ptr CodeBegin,offset @CodeBeginFile
+      mov dword ptr CodeEnd,offset @CodeEndFile
      end;
      AddCode(CodeBegin,CodeEnd);
-
     end;
     bopGC:begin
      asm

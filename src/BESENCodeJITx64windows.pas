@@ -977,25 +977,63 @@ begin
     bopFUNC:begin
      AddDispatcher;
     end;
+
     bopLINE:begin
      Add(#$b8); // mov eax,Arg
      AddDWord(Code.Locations[Operands^[0]].iLineNumber);
 
      asm
-      jmp @Skip
-       @CodeBegin:
+      jmp @SkipLine
+       @CodeBeginLine:
         mov dword ptr [rbx+TBESEN.LineNumber],eax
-       @CodeEnd:
-      @Skip:
+       @CodeEndLine:
+      @SkipLine:
       push rax
-      mov rax,offset @CodeBegin
+      mov rax,offset @CodeBeginLine
       mov qword ptr CodeBegin,rax
-      mov rax,offset @CodeEnd
+      mov rax,offset @CodeEndLine
+      mov qword ptr CodeEnd,rax
+      pop rax
+     end;
+     AddCode(CodeBegin,CodeEnd);
+
+     Add(#$b8); // mov eax,Arg
+     AddDWord(Code.Locations[Operands^[0]].iColumnNumber);
+
+     asm
+      jmp @SkipColumn
+       @CodeBeginColumn:
+        mov dword ptr [rbx+TBESEN.ColumnNumber],eax
+       @CodeEndColumn:
+      @SkipColumn:
+      push rax
+      mov rax,offset @CodeBeginColumn
+      mov qword ptr CodeBegin,rax
+      mov rax,offset @CodeEndColumn
+      mov qword ptr CodeEnd,rax
+      pop rax
+     end;
+     AddCode(CodeBegin,CodeEnd);
+
+     Add(#$b8); // mov eax,Arg
+     AddDWord(Code.Locations[Operands^[0]].iFilename);
+
+     asm
+      jmp @SkipFile
+       @CodeBeginFile:
+        mov dword ptr [rbx+TBESEN.CurrentFile],eax
+       @CodeEndFile:
+      @SkipFile:
+      push rax
+      mov rax,offset @CodeBeginFile
+      mov qword ptr CodeBegin,rax
+      mov rax,offset @CodeEndFile
       mov qword ptr CodeEnd,rax
       pop rax
      end;
      AddCode(CodeBegin,CodeEnd);
     end;
+
     bopGC:begin
      Add(#$48#$8b#$83); // mov rax,qword ptr [rbx+TBESEN.GarbageCollector]
      AddDWord(ptruint(pointer(@TBESEN(nil^).GarbageCollector)));
